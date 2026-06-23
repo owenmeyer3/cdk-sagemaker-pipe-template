@@ -716,6 +716,7 @@ def model_bias_handler(event, context):
     endpoint_name = event['endpoint_name'] if 'endpoint_name' in event else None
     data_cature_dir = event['data_cature_dir'] if 'data_cature_dir' in event else None
     name = event['name']
+    role_arn = event['monitor_role']
     deploy_type = event['deploy_type']
     monitor_dir = event['monitor_dir']
     ground_truth_dir = event['ground_truth_dir']
@@ -736,6 +737,7 @@ def model_bias_handler(event, context):
     result = create_model_bias_monitoring_schedule(
         sm_client, 
         name,
+        role_arn,
         deploy_type,
         monitor_dir,
         ground_truth_dir,
@@ -760,6 +762,7 @@ def model_explainability_handler(event, context):
     endpoint_name = event['endpoint_name'] if 'endpoint_name' in event else None
     data_cature_dir = event['data_cature_dir'] if 'data_cature_dir' in event else None
     name = event['name']
+    role_arn = event['monitor_role']
     deploy_type = event['deploy_type']
     monitor_dir = event['monitor_dir']
     image_uri = event['image_uri'] if 'image_uri' in event else "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer"
@@ -779,6 +782,7 @@ def model_explainability_handler(event, context):
     result = create_model_explainability_monitoring_schedule(
         sm_client, 
         name,
+        role_arn,
         deploy_type,
         monitor_dir,
         image_uri=image_uri,
@@ -802,6 +806,7 @@ def model_quality_handler(event, context):
     endpoint_name = event['endpoint_name'] if 'endpoint_name' in event else None
     data_cature_dir = event['data_cature_dir'] if 'data_cature_dir' in event else None
     name = event['name']
+    role_arn = event['monitor_role']
     deploy_type = event['deploy_type']
     problem_type = event['problem_type'] # 'BinaryClassification'|'MulticlassClassification'|'Regression'
     ground_truth_label = event['ground_truth_label']
@@ -824,6 +829,7 @@ def model_quality_handler(event, context):
     result = create_model_quality_monitoring_schedule(
         sm_client, 
         name,
+        role_arn,
         deploy_type,
         problem_type,
         ground_truth_label,
