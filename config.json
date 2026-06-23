@@ -1,9 +1,21 @@
 {
-	"project": {"NAME":"doc-processor"},
+	"project": {
+		"NAME":"processor",
+		"DEPLOY_TYPE":"processor",
+		"TARGET_NAME":"processor",
+		"TARGET_TYPE":"processor",
+		"PROBLEM_TYPE":"processor",
+		"PREDICTION_NAME":"processor",
+		"GROUND_TRUTH_LABEL":"processor",
+		"MODEL_PACKAGE_GROUP_NAME":"processor"
+	},
 	"dev": {
 		"ENV":"",
 		"ACCOUNT":"",
-		"REGION":"",
+		"REGION_NAME":"us-east-1",
+		"LAMBDA_EXECUTION_ROLE_ARN":"arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
+		"LAMBDA_EXECUTION_ROLE_ARN":"arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
+		"PIPELINE_BUCKET":"omm-test-bucket",
 		"VPC_CONFIG":{
 			"ID":"",
 			"SUBNETS":[

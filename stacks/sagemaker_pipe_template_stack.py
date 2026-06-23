@@ -23,19 +23,18 @@ class SagemakerPipeTemplateStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         # Build Params
-        self.sagemaker_session = sagemaker_session
-        self.region_name = project_config['region_name']
-        self.name = project_config['name']
-        self.deploy_type=project_config['deploy_type']
-        self.target_name=project_config['target_name']
-        self.target_type = project_config['target_type']
-        self.problem_type=project_config['problem_type']
-        self.prediction_name=project_config['prediction_name']
-        self.ground_truth_label=project_config['ground_truth_label']
-        self.model_package_group_name=project_config['model_package_group_name']
-        self.lambda_execution_role_arn=env_config['lambda_execution_role_arn']
-        self.other_execution_role_arn=env_config['other_execution_role_arn']
-        self.pipeline_bucket=env_config['pipeline_bucket']
+        self.name = project_config['NAME']
+        self.deploy_type=project_config['DEPLOY_TYPE']
+        self.target_name=project_config['TARGET_NAME']
+        self.target_type = project_config['TARGET_TYPE']
+        self.problem_type=project_config['PROBLEM_TYPE']
+        self.prediction_name=project_config['PREDICTION_NAME']
+        self.ground_truth_label=project_config['GROUND_TRUTH_LABEL']
+        self.model_package_group_name=project_config['MODEL_PACKAGE_GROUP_NAME']
+        self.lambda_execution_role_arn=env_config['LAMBDA_EXECUTION_ROLE_ARN']
+        self.other_execution_role_arn=env_config['OTHER_EXECUTION_ROLE_ARN']
+        self.pipeline_bucket=env_config['PIPELINE_BUCKET']
+        self.region_name = env_config['REGION_NAME']
 
         # Runtime Params
         # self.model_package_version_param =                  ParameterInteger(name='ModelPackageVersion',                 default_value=1)
