@@ -1,7 +1,7 @@
 import aws_cdk as core
 import aws_cdk.assertions as assertions
 
-from cdk_sagemaker_pipe_template.cdk_sagemaker_pipe_template_stack import CdkSagemakerPipeTemplateStack
+from stacks.sagemaker_pipe_template_stack import CdkSagemakerPipeTemplateStack
 
 # example tests. To run these tests, uncomment this file along with the example
 # resource in cdk_sagemaker_pipe_template/cdk_sagemaker_pipe_template_stack.py
