@@ -69,6 +69,8 @@ class CLambdaFunction(Construct):
         for o in outputs:
             result_selection[f'{o}.$'] = f'$.Payload.{o}'
 
+        print(payload)
+
         task = tasks.LambdaInvoke(
             self, f"{self.node.id}Task", 
             lambda_function=self.fn, 

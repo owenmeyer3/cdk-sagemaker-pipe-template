@@ -1,13 +1,13 @@
 {
 	"project": {
-		"NAME":"processor",
-		"DEPLOY_TYPE":"processor",
-		"TARGET_NAME":"processor",
-		"TARGET_TYPE":"processor",
-		"PROBLEM_TYPE":"processor",
-		"PREDICTION_NAME":"processor",
-		"GROUND_TRUTH_LABEL":"processor",
-		"MODEL_PACKAGE_GROUP_NAME":"processor"
+		"NAME":"abalone",
+		"DEPLOY_TYPE":"batch",
+		"TARGET_NAME":"rings",
+		"TARGET_TYPE":"float",
+		"PROBLEM_TYPE":"Regression",
+		"PREDICTION_NAME":"rings_prediction",
+		"GROUND_TRUTH_LABEL":"rings",
+		"MODEL_PACKAGE_GROUP_NAME":"abalone"
 	},
 	"dev": {
 		"ENV":"dev",

@@ -58,8 +58,6 @@ def parse_instances_fn_task(scope, construct_id, function_name, monitor_instance
     return [task, lambda_function]
 
 def get_get_or_create_model_from_registry_fn_task(scope, construct_id, function_name, model_package_group_name, model_package_version_lkp):
-    print(f'model_package_version_lkp: {model_package_version_lkp}')
-    print(scope.lambda_execution_role_arn)
     stepfunctions.JsonPath.string_at(model_package_version_lkp)
 
     lambda_function = CLambdaFunction(
@@ -211,7 +209,7 @@ def schedule_dq_task_fn_task(scope,
             'name': monitor_name,
             'endpoint_name': stepfunctions.JsonPath.string_at(endpoint_name_lkp),
             'data_capture_dir':data_capture_dir,
-            'monitor_role': monitor_role,
+            'monitor_role': monitor_role.role_arn,
             'deploy_type':deploy_type,
             'monitor_dir': dq_monitor_dir,
             'image_uri': image_uri,
@@ -270,7 +268,7 @@ def schedule_mb_task_fn_task(scope,
             'name': monitor_name,
             'endpoint_name': stepfunctions.JsonPath.string_at(endpoint_name_lkp),
             'data_capture_dir':data_capture_dir,
-            'monitor_role': monitor_role,
+            'monitor_role': monitor_role.role_arn,
             'deploy_type':deploy_type,
             'monitor_dir': mb_monitor_dir,
             'ground_truth_dir': stepfunctions.JsonPath.string_at(ground_truth_dir_lkp),
@@ -329,7 +327,7 @@ def schedule_me_task_fn_task(scope,
             'name': monitor_name,
             'endpoint_name': stepfunctions.JsonPath.string_at(endpoint_name_lkp),
             'data_capture_dir':data_capture_dir,
-            'monitor_role': monitor_role,
+            'monitor_role': monitor_role.role_arn,
             'deploy_type':deploy_type,
             'monitor_dir': me_monitor_dir,
             'image_uri': image_uri,
@@ -389,7 +387,7 @@ def schedule_mq_task_fn_task(scope,
             'name': monitor_name,
             'endpoint_name': stepfunctions.JsonPath.string_at(endpoint_name_lkp),
             'data_capture_dir':data_capture_dir,
-            'monitor_role': monitor_role,
+            'monitor_role': monitor_role.role_arn,
             'deploy_type':deploy_type,
             'problem_type':problem_type,
             'ground_truth_label':ground_truth_label,
@@ -438,5 +436,82 @@ def deploy_endpoint_fn_task(scope, construct_id, function_name, model_name_lkp, 
         # result_selector={}
     )
     
+    return [task, lambda_function]
+
+
+def check_dq_task_fn_task(scope, construct_id, function_name):
+    lambda_function = CLambdaFunction(
+        scope, construct_id,
+        use_docker=False,
+        function_name=function_name,
+        code_path='code/check_monitors/',
+        handler='check_monitors.data_quality_handler',
+        role=scope.lambda_execution_role_arn,
+        log_group_name=f"/lambda/{function_name}",
+        log_retention=logs.RetentionDays.ONE_MONTH,
+        runtime='python3.11'
+    )
+    task = lambda_function.generate_task(
+        payload={
+        },
+        # result_selector={}
+    )
+    return [task, lambda_function]
+
+def check_mq_task_fn_task(scope, construct_id, function_name):
+    lambda_function = CLambdaFunction(
+        scope, construct_id,
+        use_docker=False,
+        function_name=function_name,
+        code_path='code/check_monitors/',
+        handler='check_monitors.model_quality_handler',
+        role=scope.lambda_execution_role_arn,
+        log_group_name=f"/lambda/{function_name}",
+        log_retention=logs.RetentionDays.ONE_MONTH,
+        runtime='python3.11'
+    )
+    task = lambda_function.generate_task(
+        payload={
+        },
+        # result_selector={}
+    )
+    return [task, lambda_function]
+
+def check_me_task_fn_task(scope, construct_id, function_name):
+    lambda_function = CLambdaFunction(
+        scope, construct_id,
+        use_docker=False,
+        function_name=function_name,
+        code_path='code/check_monitors/',
+        handler='check_monitors.model_explainability_handler',
+        role=scope.lambda_execution_role_arn,
+        log_group_name=f"/lambda/{function_name}",
+        log_retention=logs.RetentionDays.ONE_MONTH,
+        runtime='python3.11'
+    )
+    task = lambda_function.generate_task(
+        payload={
+        },
+        # result_selector={}
+    )
+    return [task, lambda_function]
+
+def check_mb_task_fn_task(scope, construct_id, function_name):
+    lambda_function = CLambdaFunction(
+        scope, construct_id,
+        use_docker=False,
+        function_name=function_name,
+        code_path='code/check_monitors/',
+        handler='check_monitors.model_bias_handler',
+        role=scope.lambda_execution_role_arn,
+        log_group_name=f"/lambda/{function_name}",
+        log_retention=logs.RetentionDays.ONE_MONTH,
+        runtime='python3.11'
+    )
+    task = lambda_function.generate_task(
+        payload={
+        },
+        # result_selector={}
+    )
     return [task, lambda_function]
 
