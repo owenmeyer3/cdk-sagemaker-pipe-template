@@ -53,7 +53,7 @@ def get_batch_transform_task(scope, model_name_lookup, batch_input_dir_lookup):
         transform_input=tasks.TransformInput(
             transform_data_source=tasks.TransformDataSource(
                 s3_data_source=tasks.TransformS3DataSource(
-                    s3_uri=scope.batch_input_dir,
+                    s3_uri=stepfunctions.JsonPath.string_at(model_name_lookup),
                     s3_data_type=tasks.S3DataType.S3_PREFIX
                 )
             )
