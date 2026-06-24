@@ -17,9 +17,9 @@ def instance_size(instance):
 
 
 
-def get_baseline_transform_task(scope, model_name_lkp, baseline_file_lkp):
-    tasks.SageMakerCreateTransformJob(scope, "Transform",
-        # transform_job_name="MyTransformJob",
+def get_baseline_transform_task(scope, model_name_lkp, baseline_file_lkp, transform_instance_dtl_lkp):
+    return tasks.SageMakerCreateTransformJob(scope, "Transform",
+        transform_job_name="BaselineTransformJob",
         model_name=stepfunctions.JsonPath.string_at(model_name_lkp),
         model_client_options=tasks.ModelClientOptions(
             invocations_max_retries=3,  # default is 0
@@ -38,7 +38,12 @@ def get_baseline_transform_task(scope, model_name_lkp, baseline_file_lkp):
         ),
         transform_resources=tasks.TransformResources(
             instance_count=1,
-            instance_type=ec2.InstanceType.of(instance_class(scope.transform_instance_type), instance_size(scope.transform_instance_type))
+            instance_type=ec2.InstanceType.of(
+                # stepfunctions.JsonPath.string_at(f'{transform_instance_dtl_lkp}.class'),
+                # stepfunctions.JsonPath.string_at(f'{transform_instance_dtl_lkp}.type')
+                ec2.InstanceClass.M5,
+                ec2.InstanceSize.XLARGE
+            )
         )
     )
     # Output
@@ -55,9 +60,9 @@ def get_baseline_transform_task(scope, model_name_lkp, baseline_file_lkp):
     #     "TransformEndTime": "..."
     # }
 
-def get_batch_transform_task(scope, model_name_lkp, batch_input_dir_lkp):
-    tasks.SageMakerCreateTransformJob(scope, "Transform",
-        # transform_job_name="MyTransformJob",
+def get_batch_transform_task(scope, model_name_lkp, batch_input_dir_lkp, transform_instance_dtl_lkp):
+    return tasks.SageMakerCreateTransformJob(scope, "Transform",
+        transform_job_name="BatchTransformJob",
         model_name=stepfunctions.JsonPath.string_at(model_name_lkp),
         model_client_options=tasks.ModelClientOptions(
             invocations_max_retries=3,  # default is 0
@@ -76,9 +81,24 @@ def get_batch_transform_task(scope, model_name_lkp, batch_input_dir_lkp):
         ),
         transform_resources=tasks.TransformResources(
             instance_count=1,
-            instance_type=ec2.InstanceType.of(instance_class(scope.transform_instance_type), instance_size(scope.transform_instance_type))
+            instance_type=ec2.InstanceType.of(
+                # stepfunctions.JsonPath.string_at(f'{transform_instance_dtl_lkp}.class'),
+                # stepfunctions.JsonPath.string_at(f'{transform_instance_dtl_lkp}.type')
+                exec(f'ec2.InstanceClass.M5'),
+                exec(f'ec2.InstanceSize.XLARGE')
+            )
         )
     )
+# ec2.InstanceType.constructor
+#     exec(f'ec2.InstanceClass.M5'),
+#     exec(f'ec2.InstanceSize.XLARGE')
+#     exec(f'ec2.InstanceClass.{stepfunctions.JsonPath.string_at(f'{transform_instance_dtl_lkp}.class')}'),
+#     exec(f'ec2.InstanceSize.{stepfunctions.JsonPath.string_at(f'{transform_instance_dtl_lkp}.type')}')
+
+# instance_type=ec2.InstanceType.of(
+#     exec(f'ec2.InstanceClass.{stepfunctions.JsonPath.string_at(f'{transform_instance_dtl_lkp}.class')}'),
+#     exec(f'ec2.InstanceSize.{stepfunctions.JsonPath.string_at(f'{transform_instance_dtl_lkp}.type')}')
+# )
     # Output
     # {
     #     "TransformJobName": "my-transform-job",

@@ -8,10 +8,62 @@ from custom_constructs.CLambda import CLambdaFunction
 from custom_constructs.CECS import CFargateTaskDefinition
 from custom_constructs.utils import get_local_project_root
 
-def get_get_or_create_model_from_registry_fn_task(scope, model_package_group_name, model_package_version_lkp):
-    function_name = "get_or_create_model_from_registry"
+def sm_transform_fn_task(scope, construct_id, function_name, model_name_lkp, instance_type_lkp, s3_data_source=None, s3_data_source_lkp=None, transform_out_dir=None, transform_out_dir_lkp=None):
     lambda_function = CLambdaFunction(
-        scope, "GetOrCreateModelFromRegistry",
+        scope, construct_id,
+        use_docker=False,
+        function_name=function_name,
+        code_path='code/sagemaker',
+        handler='sagemaker.transform_job_handler',
+        role=scope.lambda_execution_role_arn,
+        log_group_name=f"/lambda/{function_name}",
+        log_retention=logs.RetentionDays.ONE_MONTH,
+        runtime='python3.11'
+    )
+    # outputs=['TransformJobArn', 'JobName', 'OutputPath', 'Status']
+
+    task = lambda_function.generate_task(
+        payload={
+            'model_name': stepfunctions.JsonPath.string_at(model_name_lkp),
+            's3_data_source': stepfunctions.JsonPath.string_at(s3_data_source_lkp) if s3_data_source_lkp else s3_data_source,
+            'transform_out_dir': stepfunctions.JsonPath.string_at(transform_out_dir_lkp) if transform_out_dir_lkp else transform_out_dir,
+            'instance_type': stepfunctions.JsonPath.string_at(instance_type_lkp)
+        },
+        # result_selector={}
+    )
+    return [task, lambda_function]
+
+def parse_instances_fn_task(scope, construct_id, function_name, monitor_instance_lkp, transform_instance_lkp, endpoint_instance_lkp):
+    lambda_function = CLambdaFunction(
+        scope, construct_id,
+        use_docker=False,
+        function_name=function_name,
+        code_path='code/utils',
+        handler='utils.instance_parse_handler',
+        role=scope.lambda_execution_role_arn,
+        log_group_name=f"/lambda/{function_name}",
+        log_retention=logs.RetentionDays.ONE_MONTH,
+        runtime='python3.11'
+    )
+    # outputs=['monitor_instance.class', 'monitor_instance.size', 'transform_instance.class', 'transform_instance.size', 'endpoint_instance.class', 'endpoint_instance.size']
+
+    task = lambda_function.generate_task(
+        payload={
+            'monitor_instance': stepfunctions.JsonPath.string_at(monitor_instance_lkp),
+            'transform_instance': stepfunctions.JsonPath.string_at(transform_instance_lkp),
+            'endpoint_instance': stepfunctions.JsonPath.string_at(endpoint_instance_lkp)
+        },
+        # result_selector={}
+    )
+    return [task, lambda_function]
+
+def get_get_or_create_model_from_registry_fn_task(scope, construct_id, function_name, model_package_group_name, model_package_version_lkp):
+    print(f'model_package_version_lkp: {model_package_version_lkp}')
+    print(scope.lambda_execution_role_arn)
+    stepfunctions.JsonPath.string_at(model_package_version_lkp)
+
+    lambda_function = CLambdaFunction(
+        scope, construct_id,
         use_docker=False,
         function_name=function_name,
         code_path='code/get_or_create_model_from_registry',
@@ -22,7 +74,7 @@ def get_get_or_create_model_from_registry_fn_task(scope, model_package_group_nam
         runtime='python3.11'
     )
     # outputs=['model_name', 'model_package_arn']
-
+    
     task = lambda_function.generate_task(
         payload={
             'model_package_group_name': model_package_group_name,
@@ -30,13 +82,13 @@ def get_get_or_create_model_from_registry_fn_task(scope, model_package_group_nam
         },
         # result_selector={}
     )
+
     return [task, lambda_function]
 
 
-def prep_baseline_sets_fn_task(scope, baseline_file_lkp, target_name, target_type, baseline_dir):
-    function_name = "prep_baseline_sets"
+def prep_baseline_sets_fn_task(scope, construct_id, function_name, baseline_file_lkp, target_name, target_type, baseline_dir):
     lambda_function = CLambdaFunction(
-        scope, "PrepBaselineSets",
+        scope, construct_id,
         use_docker=False,
         function_name=function_name,
         code_path='code/baselining/',
@@ -61,10 +113,9 @@ def prep_baseline_sets_fn_task(scope, baseline_file_lkp, target_name, target_typ
     return [task, lambda_function]
 
 
-def get_baseline_preds_fn_task(scope, transform_out_dir_lkp, target_name, target_type):
-    function_name = "get_baseline_preds"
+def get_baseline_preds_fn_task(scope, construct_id, function_name, transform_out_dir_lkp, target_name, target_type):
     lambda_function = CLambdaFunction(
-        scope, "GetBaselinePreds",
+        scope, construct_id,
         use_docker=False,
         function_name=function_name,
         code_path='code/baselining/',
@@ -89,10 +140,9 @@ def get_baseline_preds_fn_task(scope, transform_out_dir_lkp, target_name, target
 
 
 
-def make_baseline_sets_fn_task(scope, baseline_file_lkp, baseline_pred_file_lkp, dq_monitor_dir, db_monitor_dir, mq_monitor_dir, mb_monitor_dir, me_monitor_dir, target_name, prediction_name, baseline_X_file_lkp, target_type):
-    function_name = "make_baseline_sets"
+def make_baseline_sets_fn_task(scope, construct_id, function_name, baseline_file_lkp, baseline_pred_file_lkp, dq_monitor_dir, db_monitor_dir, mq_monitor_dir, mb_monitor_dir, me_monitor_dir, target_name, prediction_name, baseline_X_file_lkp, target_type):
     lambda_function = CLambdaFunction(
-        scope, "MakeBaselineSets",
+        scope, construct_id,
         use_docker=False,
         function_name=function_name,
         code_path='code/baselining/',
@@ -124,12 +174,13 @@ def make_baseline_sets_fn_task(scope, baseline_file_lkp, baseline_pred_file_lkp,
     return [task, lambda_function]
 
 
-
 def schedule_dq_task_fn_task(scope, 
-        name, 
+        construct_id,
+        function_name,
+        monitor_name,
         endpoint_name_lkp,
-        data_cature_dir,
-        other_execution_role_arn_lkp,
+        data_capture_dir,
+        monitor_role,
         deploy_type,
         dq_monitor_dir,
         monitor_instance_type_lkp,
@@ -142,9 +193,8 @@ def schedule_dq_task_fn_task(scope,
         max_runtime_in_seconds=1800, 
         dataset_format={'Csv': {'Header': True}}
     ):
-    function_name = "schedule_data_quality"
     lambda_function = CLambdaFunction(
-        scope, "ScheduleDataQuality",
+        scope, construct_id,
         use_docker=False,
         function_name=function_name,
         code_path='code/schedule_monitors/',
@@ -158,10 +208,10 @@ def schedule_dq_task_fn_task(scope,
 
     task = lambda_function.generate_task(
         payload={
-            'name': name,
+            'name': monitor_name,
             'endpoint_name': stepfunctions.JsonPath.string_at(endpoint_name_lkp),
-            'data_cature_dir':data_cature_dir,
-            'monitor_role': stepfunctions.JsonPath.string_at(other_execution_role_arn_lkp),
+            'data_capture_dir':data_capture_dir,
+            'monitor_role': monitor_role,
             'deploy_type':deploy_type,
             'monitor_dir': dq_monitor_dir,
             'image_uri': image_uri,
@@ -182,13 +232,15 @@ def schedule_dq_task_fn_task(scope,
 
 
 def schedule_mb_task_fn_task(scope, 
-        name, 
+        construct_id,
+        function_name,
+        monitor_name,
         endpoint_name_lkp,
-        data_cature_dir,
-        other_execution_role_arn_lkp,
+        data_capture_dir,
+        monitor_role,
         deploy_type,
         mb_monitor_dir,
-        ground_truth_dir,
+        ground_truth_dir_lkp,
         monitor_instance_type_lkp,
         schedule_expression_lkp,
         data_analysis_start_time_lkp,
@@ -199,10 +251,9 @@ def schedule_mb_task_fn_task(scope,
         max_runtime_in_seconds=1800, 
         dataset_format={'Csv': {'Header': True}}
     ):
-    
-    function_name = "schedule_model_bias"
+
     lambda_function = CLambdaFunction(
-        scope, "ScheduleModelBias",
+        scope, construct_id,
         use_docker=False,
         function_name=function_name,
         code_path='code/schedule_monitors/',
@@ -216,13 +267,13 @@ def schedule_mb_task_fn_task(scope,
 
     task = lambda_function.generate_task(
         payload={
-            'name': name,
+            'name': monitor_name,
             'endpoint_name': stepfunctions.JsonPath.string_at(endpoint_name_lkp),
-            'data_cature_dir':data_cature_dir,
-            'monitor_role': stepfunctions.JsonPath.string_at(other_execution_role_arn_lkp),
+            'data_capture_dir':data_capture_dir,
+            'monitor_role': monitor_role,
             'deploy_type':deploy_type,
             'monitor_dir': mb_monitor_dir,
-            'ground_truth_dir': ground_truth_dir,
+            'ground_truth_dir': stepfunctions.JsonPath.string_at(ground_truth_dir_lkp),
             'image_uri': image_uri,
             'instance_count':instance_count,
             'instance_type':stepfunctions.JsonPath.string_at(monitor_instance_type_lkp),
@@ -241,10 +292,12 @@ def schedule_mb_task_fn_task(scope,
 
 
 def schedule_me_task_fn_task(scope, 
-        name, 
+        construct_id,
+        function_name,
+        monitor_name,
         endpoint_name_lkp,
-        data_cature_dir,
-        other_execution_role_arn_lkp,
+        data_capture_dir,
+        monitor_role,
         deploy_type,
         me_monitor_dir,
         monitor_instance_type_lkp,
@@ -258,9 +311,8 @@ def schedule_me_task_fn_task(scope,
         dataset_format={'Csv': {'Header': True}}
     ):
     
-    function_name = "schedule_model_explainability"
     lambda_function = CLambdaFunction(
-        scope, "ScheduleModelExplainability",
+        scope, construct_id,
         use_docker=False,
         function_name=function_name,
         code_path='code/schedule_monitors/',
@@ -274,10 +326,10 @@ def schedule_me_task_fn_task(scope,
 
     task = lambda_function.generate_task(
         payload={
-            'name': name,
+            'name': monitor_name,
             'endpoint_name': stepfunctions.JsonPath.string_at(endpoint_name_lkp),
-            'data_cature_dir':data_cature_dir,
-            'monitor_role': stepfunctions.JsonPath.string_at(other_execution_role_arn_lkp),
+            'data_capture_dir':data_capture_dir,
+            'monitor_role': monitor_role,
             'deploy_type':deploy_type,
             'monitor_dir': me_monitor_dir,
             'image_uri': image_uri,
@@ -298,14 +350,16 @@ def schedule_me_task_fn_task(scope,
 
 
 def schedule_mq_task_fn_task(scope, 
-        name, 
+        construct_id,
+        function_name,
+        monitor_name,
         endpoint_name_lkp,
-        data_cature_dir,
-        other_execution_role_arn_lkp,
+        data_capture_dir,
+        monitor_role,
         deploy_type,
         problem_type,
         ground_truth_label,
-        ground_truth_dir,
+        ground_truth_dir_lkp,
         mq_monitor_dir,
         monitor_instance_type_lkp,
         schedule_expression_lkp,
@@ -317,9 +371,8 @@ def schedule_mq_task_fn_task(scope,
         max_runtime_in_seconds=1800, 
         dataset_format={'Csv': {'Header': True}}
     ):
-    function_name = "schedule_model_quality"
     lambda_function = CLambdaFunction(
-        scope, "ScheduleModelQuality",
+        scope, construct_id,
         use_docker=False,
         function_name=function_name,
         code_path='code/schedule_monitors/',
@@ -333,15 +386,15 @@ def schedule_mq_task_fn_task(scope,
 
     task = lambda_function.generate_task(
         payload={
-            'name': name,
+            'name': monitor_name,
             'endpoint_name': stepfunctions.JsonPath.string_at(endpoint_name_lkp),
-            'data_cature_dir':data_cature_dir,
-            'monitor_role': stepfunctions.JsonPath.string_at(other_execution_role_arn_lkp),
+            'data_capture_dir':data_capture_dir,
+            'monitor_role': monitor_role,
             'deploy_type':deploy_type,
             'problem_type':problem_type,
             'ground_truth_label':ground_truth_label,
             'monitor_dir': mq_monitor_dir,
-            'ground_truth_dir':ground_truth_dir,
+            'ground_truth_dir':stepfunctions.JsonPath.string_at(ground_truth_dir_lkp),
             'image_uri': image_uri,
             'instance_count':instance_count,
             'instance_type':stepfunctions.JsonPath.string_at(monitor_instance_type_lkp),
@@ -359,10 +412,9 @@ def schedule_mq_task_fn_task(scope,
     return [task, lambda_function]
 
 
-def deploy_endpoint_fn_task(scope, model_name_lkp, model_package_group_name, model_package_version_lkp, endpoint_instance_type_lkp, data_capture_dir):
-    function_name = "deploy_endpoint"
+def deploy_endpoint_fn_task(scope, construct_id, function_name, model_name_lkp, model_package_group_name, model_package_version_lkp, endpoint_instance_type_lkp, data_capture_dir):
     lambda_function = CLambdaFunction(
-        scope, "DeployEndpoint",
+        scope, construct_id,
         use_docker=False,
         function_name=function_name,
         code_path='code/deploy_endpoint/',

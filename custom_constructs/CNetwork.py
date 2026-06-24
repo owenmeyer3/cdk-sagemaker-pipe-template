@@ -29,14 +29,12 @@ class CNetwork(Construct):
         availability_zones = []
         route_table_ids = []
         self.subnets = []
-        print(f'route_table_ids {route_table_ids}')
         for i, s in enumerate(vpc_config["SUBNETS"]):
             subnet_ids.append(s["ID"])
             availability_zones.append(s["AZ"])
             route_table_ids.append(s["ROUTE_TABLE"])
             self.subnets.append(ec2.Subnet.from_subnet_attributes(self, f"{construct_id}Subnet{i}", subnet_id=s["ID"], availability_zone=s["AZ"], route_table_id=s["ROUTE_TABLE"]))
         
-        print(f'route_table_ids {route_table_ids}')
         self.vpc = ec2.Vpc.from_vpc_attributes(
             self,
             f"{construct_id}Vpc",

@@ -57,7 +57,6 @@ class CLambdaFunction(Construct):
             code_path=kwargs.pop('code_path', None)
             handler=kwargs.pop('handler', None)
             runtime=kwargs.pop('runtime', 'python3.11')
-            print(code_path)
             # self.fn=_lambda.Function(self, f"{self.node.id}Fn",runtime=runtime,handler=handler, code = _lambda.Code.from_asset(code_path), **kwargs)
             self.fn=_lambda.Function(self, f"{self.node.id}Fn", runtime=_lambda.Runtime(runtime), handler=handler, code = _lambda.Code.from_asset(code_path), **kwargs)
 

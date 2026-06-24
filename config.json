@@ -13,6 +13,8 @@
 		"ENV":"dev",
 		"ACCOUNT":"088461143167",
 		"REGION_NAME":"us-east-1",
+		"SM_EXECUTION_ROLE_ARN":"arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
+		"RULE_EXECUTION_ROLE_ARN":"arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
 		"LAMBDA_EXECUTION_ROLE_ARN":"arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
 		"OTHER_EXECUTION_ROLE_ARN":"arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
 		"PIPELINE_BUCKET":"omm-test-bucket",
