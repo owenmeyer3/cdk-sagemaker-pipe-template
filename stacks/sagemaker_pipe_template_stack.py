@@ -67,22 +67,22 @@ class SagemakerPipeTemplateStack(Stack):
         # self.enable_sns_notification =                  os.getenv('ENABLE_SNS_NOTIFICATION')# :False,
         # self.ground_truth_dir =                         os.getenv('GROUND_TRUTH_DIR')# :f's3://omm-test-bucket/ground-truth/abalone',
         # self.batch_input_dir =                          os.getenv('BATCH_INPUT_DIR')# :f's3://omm-test-bucket/batch_input/abalone',
-        self.model_package_version_lkp = stepfunctions.JsonPath.string_at('$.MODEL_PACKAGE_VERSION')
-        self.action_type_lkp = stepfunctions.JsonPath.string_at('$.ACTION')
-        self.baseline_file_lkp = stepfunctions.JsonPath.string_at('$.BASELINE_FILE')
-        self.monitor_instance_type_lkp = stepfunctions.JsonPath.string_at('$.MONITOR_INSTANCE_TYPE')
-        self.endpoint_instance_type_lkp = stepfunctions.JsonPath.string_at('$.ENDPOINT_INSTANCE_TYPE')
-        self.transform_instance_type_lkp = stepfunctions.JsonPath.string_at('$.TRANSFORM_INSTANCE_TYPE')
-        self.fail_on_violation_lkp = stepfunctions.JsonPath.string_at('$.FAIL_ON_VIOLATION')
-        self.monitor_schedule_expression_lkp = stepfunctions.JsonPath.string_at('$.MONITOR_SCHEDULE_EXPRESSION')
-        self.enable_data_quality_monitoring_lkp = stepfunctions.JsonPath.string_at('$.ENABLE_DATA_QUALITY_MONITORING')
-        self.enable_model_bias_monitoring_lkp = stepfunctions.JsonPath.string_at('$.ENABLE_MODEL_BIAS_MONITORING')
-        self.enable_model_explainability_monitoring_lkp = stepfunctions.JsonPath.string_at('$.ENABLE_MODEL_EXPLAINABILITY_MONITORING')
-        self.enable_model_quality_monitoring_lkp = stepfunctions.JsonPath.string_at('$.ENABLE_MODEL_QUALITY_MONITORING')
-        self.sns_topic_arn_lkp = stepfunctions.JsonPath.string_at('$.SNS_TOPIC_ARN')
-        self.enable_sns_notification_lkp = stepfunctions.JsonPath.string_at('$.ENABLE_SNS_NOTIFICATION')
-        self.ground_truth_dir_lkp = stepfunctions.JsonPath.string_at('$.GROUND_TRUTH_DIR')
-        self.batch_input_dir_lkp = stepfunctions.JsonPath.string_at('$.BATCH_INPUT_DIR')
+        self.model_package_version_lkp = '$.MODEL_PACKAGE_VERSION'
+        self.action_type_lkp = '$.ACTION'
+        self.baseline_file_lkp = '$.BASELINE_FILE'
+        self.monitor_instance_type_lkp = '$.MONITOR_INSTANCE_TYPE'
+        self.endpoint_instance_type_lkp = '$.ENDPOINT_INSTANCE_TYPE'
+        self.transform_instance_type_lkp = '$.TRANSFORM_INSTANCE_TYPE'
+        self.fail_on_violation_lkp = '$.FAIL_ON_VIOLATION'
+        self.monitor_schedule_expression_lkp = '$.MONITOR_SCHEDULE_EXPRESSION'
+        self.enable_data_quality_monitoring_lkp = '$.ENABLE_DATA_QUALITY_MONITORING'
+        self.enable_model_bias_monitoring_lkp = '$.ENABLE_MODEL_BIAS_MONITORING'
+        self.enable_model_explainability_monitoring_lkp = '$.ENABLE_MODEL_EXPLAINABILITY_MONITORING'
+        self.enable_model_quality_monitoring_lkp = '$.ENABLE_MODEL_QUALITY_MONITORING'
+        self.sns_topic_arn_lkp = '$.SNS_TOPIC_ARN'
+        self.enable_sns_notification_lkp = '$.ENABLE_SNS_NOTIFICATION'
+        self.ground_truth_dir_lkp = '$.GROUND_TRUTH_DIR'
+        self.batch_input_dir_lkp = '$.BATCH_INPUT_DIR'
 
         # Import existing resources
         self.lambda_execution_role_arn=iam.Role.from_role_arn(self, "ImportedLambdaExecutionRole", env_config['LAMBDA_EXECUTION_ROLE_ARN'], mutable=False)
@@ -94,27 +94,19 @@ class SagemakerPipeTemplateStack(Stack):
         sf_launch_schedule = events.Schedule.rate(Duration.hours(1))
         end_pass = stepfunctions.Pass(self, 'End')
 
-        # CHOICES
+        # CHOICES / CONDITIONS
         rebaseline_choice = stepfunctions.Choice(self, "RebaselineChoice")
         rebaseline_cond = stepfunctions.Condition.string_equals("$.rebaseline", "TRUE")
-
         deploy_or_inference_choice = stepfunctions.Choice(self, "DeployOrInferenceChoice")
         deploy_or_inference_cond = stepfunctions.Condition.string_equals("$.deploy_or_inference", "deploy")
-
         schedule_dq_mon_choice = stepfunctions.Choice(self, "ScheduleDqMonChoice")
         schedule_dq_mon_cond = stepfunctions.Condition.string_equals("$.scheduleDqMonChoice", "TRUE")
-
         schedule_mq_mon_choice = stepfunctions.Choice(self, "ScheduleMqMonChoice")
         schedule_mq_mon_cond = stepfunctions.Condition.string_equals("$.scheduleMqMonChoice", "TRUE")
-        
         schedule_me_mon_choice = stepfunctions.Choice(self, "ScheduleMeMonChoice")
         schedule_me_mon_cond = stepfunctions.Condition.string_equals("$.scheduleMeMonChoice", "TRUE")
-        
         schedule_mb_mon_choice = stepfunctions.Choice(self, "ScheduleMbMonChoice")
         schedule_mb_mon_cond = stepfunctions.Condition.string_equals("$.scheduleMbMonChoice", "TRUE")
-
-        conditional_schedule_dq_tasks = schedule_dq_mon_choice.when(schedule_dq_mon_cond, deploy_chain).otherwise(inference_chain)
-
 
 
         # TASKS
@@ -122,10 +114,11 @@ class SagemakerPipeTemplateStack(Stack):
         prep_baseline_sets_task, prep_baseline_sets_function = lambda_tasks.prep_baseline_sets_fn_task(self)
         baseline_transform_task = sagemaker_tasks.get_baseline_transform_task(self, f'{get_or_create_model_from_registry_task._result_path}.model_name')
 
-        # Parallel Monitor Schedule
+        
         get_baseline_preds_task = lambda_tasks.get_baseline_preds_fn_task(self)
         make_baseline_task = lambda_tasks.make_baseline_sets_fn_task(self)
-
+        
+        # Parallel Monitor Schedule
         end_parallel_monitor_scheduler = stepfunctions.Pass(self, 'EndParallelMonitorScheduler')
 
         schedule_dq_task = lambda_tasks.schedule_dq_task_fn_task(self, 'dq-mon')
