@@ -1,15 +1,6 @@
 import os, pathlib, json
 from aws_cdk import (
-    Stack,
-    Duration,
-    RemovalPolicy,
-    aws_ecs as ecs,
-    aws_iam as iam,
-    aws_logs as logs,
-    aws_stepfunctions as stepfunctions,
-    aws_events as events,
-    aws_events_targets as targets,
-    aws_ecr_assets as ecr_assets,
+    aws_logs as logs
 )
 from custom_constructs.CNetwork import CNetwork
 from custom_constructs.CLambda import CLambdaFunction
@@ -17,23 +8,24 @@ from custom_constructs.CECS import CFargateTaskDefinition
 from custom_constructs.utils import get_local_project_root
 
 def get_get_or_create_model_from_registry_fn_task(scope):
-    function_name = "get_or_create_model_from_registry",
+    function_name = "get_or_create_model_from_registry"
     lambda_function = CLambdaFunction(
         scope, "GetOrCreateModelFromRegistry",
         use_docker=False,
         function_name=function_name,
         code_path='code/get_or_create_model_from_registry',
         handler='get_or_create_model_from_registry.handler',
-        role=scope.lambda_execution_role,
+        role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
-        log_retention=logs.RetentionDays.ONE_MONTH
+        log_retention=logs.RetentionDays.ONE_MONTH,
+        runtime='python3.11'
     )
     # outputs=['model_name', 'model_package_arn']
 
     task = lambda_function.generate_task(
         payload={
             'model_package_group_name': scope.model_package_group_name,
-            'model_package_version': scope.model_package_version_param
+            'model_package_version': scope.model_package_version
         },
         # result_selector={}
     )
@@ -41,16 +33,17 @@ def get_get_or_create_model_from_registry_fn_task(scope):
 
 
 def prep_baseline_sets_fn_task(scope):
-    function_name = "prep_baseline_sets",
+    function_name = "prep_baseline_sets"
     lambda_function = CLambdaFunction(
         scope, "PrepBaselineSets",
         use_docker=False,
         function_name=function_name,
-        code_path='code/baselining',
+        code_path='code/baselining/',
         handler='baselining.prep_baseline_sets_handler',
-        role=scope.lambda_execution_role,
+        role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
-        log_retention=logs.RetentionDays.ONE_MONTH
+        log_retention=logs.RetentionDays.ONE_MONTH,
+        runtime='python3.11'
     )
     # outputs=['baseline_X_dir', 'baseline_X_file', 'baseline_X_filename']
 
@@ -68,16 +61,17 @@ def prep_baseline_sets_fn_task(scope):
 
 
 def get_baseline_preds_fn_task(scope):
-    function_name = "get_baseline_preds",
+    function_name = "get_baseline_preds"
     lambda_function = CLambdaFunction(
         scope, "GetBaselinePreds",
         use_docker=False,
         function_name=function_name,
-        code_path='code/baselining',
+        code_path='code/baselining/',
         handler='baselining.get_baseline_preds_handler',
-        role=scope.lambda_execution_role,
+        role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
-        log_retention=logs.RetentionDays.ONE_MONTH
+        log_retention=logs.RetentionDays.ONE_MONTH,
+        runtime='python3.11'
     )
     # outputs=['baseline_pred_file']
 
@@ -95,16 +89,17 @@ def get_baseline_preds_fn_task(scope):
 
 
 def make_baseline_sets_fn_task(scope):
-    function_name = "make_baseline_sets",
+    function_name = "make_baseline_sets"
     lambda_function = CLambdaFunction(
         scope, "MakeBaselineSets",
         use_docker=False,
         function_name=function_name,
-        code_path='code/baselining',
+        code_path='code/baselining/',
         handler='baselining.make_baseline_sets_handler',
-        role=scope.lambda_execution_role,
+        role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
-        log_retention=logs.RetentionDays.ONE_MONTH
+        log_retention=logs.RetentionDays.ONE_MONTH,
+        runtime='python3.11'
     )
     # outputs=[]
 
@@ -130,16 +125,17 @@ def make_baseline_sets_fn_task(scope):
 
 
 def schedule_dq_task_fn_task(scope, name, image_uri='156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer', instance_count=1, volume_size_in_gb=20, max_runtime_in_seconds=1800, dataset_format={'Csv': {'Header': True}}, schedule_expression='cron(0 * ? * * *)', data_analysis_start_time="-PT2H",data_analysis_end_time="-PT1H"):
-    function_name = "schedule_data_quality",
+    function_name = "schedule_data_quality"
     lambda_function = CLambdaFunction(
         scope, "ScheduleDataQuality",
         use_docker=False,
         function_name=function_name,
-        code_path='code/schedule_monitors',
+        code_path='code/schedule_monitors/',
         handler='schedule_monitors.data_quality_handler',
-        role=scope.lambda_execution_role,
+        role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
-        log_retention=logs.RetentionDays.ONE_MONTH
+        log_retention=logs.RetentionDays.ONE_MONTH,
+        runtime='python3.11'
     )
     # outputs=[]
 
@@ -169,16 +165,17 @@ def schedule_dq_task_fn_task(scope, name, image_uri='156813124566.dkr.ecr.us-eas
 
 
 def schedule_mb_task_fn_task(scope, name, image_uri='156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer', instance_count=1, volume_size_in_gb=20, max_runtime_in_seconds=1800, dataset_format={'Csv': {'Header': True}}, schedule_expression='cron(0 * ? * * *)', data_analysis_start_time="-PT2H",data_analysis_end_time="-PT1H"):
-    function_name = "schedule_model_bias",
+    function_name = "schedule_model_bias"
     lambda_function = CLambdaFunction(
         scope, "ScheduleModelBias",
         use_docker=False,
         function_name=function_name,
-        code_path='code/schedule_monitors',
+        code_path='code/schedule_monitors/',
         handler='schedule_monitors.model_bias_handler',
-        role=scope.lambda_execution_role,
+        role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
-        log_retention=logs.RetentionDays.ONE_MONTH
+        log_retention=logs.RetentionDays.ONE_MONTH,
+        runtime='python3.11'
     )
     # outputs=[]
 
@@ -209,16 +206,17 @@ def schedule_mb_task_fn_task(scope, name, image_uri='156813124566.dkr.ecr.us-eas
 
 
 def schedule_me_task_fn_task(scope, name, image_uri='156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer', instance_count=1, volume_size_in_gb=20, max_runtime_in_seconds=1800, dataset_format={'Csv': {'Header': True}}, schedule_expression='cron(0 * ? * * *)', data_analysis_start_time="-PT2H",data_analysis_end_time="-PT1H"):
-    function_name = "schedule_model_explainability",
+    function_name = "schedule_model_explainability"
     lambda_function = CLambdaFunction(
         scope, "ScheduleModelExplainability",
         use_docker=False,
         function_name=function_name,
-        code_path='code/schedule_monitors',
+        code_path='code/schedule_monitors/',
         handler='schedule_monitors.model_explainability_handler',
-        role=scope.lambda_execution_role,
+        role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
-        log_retention=logs.RetentionDays.ONE_MONTH
+        log_retention=logs.RetentionDays.ONE_MONTH,
+        runtime='python3.11'
     )
     # outputs=[]
 
@@ -248,16 +246,17 @@ def schedule_me_task_fn_task(scope, name, image_uri='156813124566.dkr.ecr.us-eas
 
 
 def schedule_mq_task_fn_task(scope, name, image_uri='156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer', instance_count=1, volume_size_in_gb=20, max_runtime_in_seconds=1800, dataset_format={'Csv': {'Header': True}}, schedule_expression='cron(0 * ? * * *)', data_analysis_start_time="-PT2H",data_analysis_end_time="-PT1H"):
-    function_name = "schedule_model_quality",
+    function_name = "schedule_model_quality"
     lambda_function = CLambdaFunction(
         scope, "ScheduleModelQuality",
         use_docker=False,
         function_name=function_name,
-        code_path='code/schedule_monitors',
+        code_path='code/schedule_monitors/',
         handler='schedule_monitors.model_quality_handler',
-        role=scope.lambda_execution_role,
+        role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
-        log_retention=logs.RetentionDays.ONE_MONTH
+        log_retention=logs.RetentionDays.ONE_MONTH,
+        runtime='python3.11'
     )
     # outputs=[]
 
@@ -290,16 +289,17 @@ def schedule_mq_task_fn_task(scope, name, image_uri='156813124566.dkr.ecr.us-eas
 
 
 def deploy_endpoint_fn_task(scope):
-    function_name = "deploy_endpoint",
+    function_name = "deploy_endpoint"
     lambda_function = CLambdaFunction(
         scope, "DeployEndpoint",
         use_docker=False,
         function_name=function_name,
-        code_path='code/deploy_endpoint',
+        code_path='code/deploy_endpoint/',
         handler='deploy_endpoint.handler',
-        role=scope.lambda_execution_role,
+        role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
-        log_retention=logs.RetentionDays.ONE_MONTH
+        log_retention=logs.RetentionDays.ONE_MONTH,
+        runtime='python3.11'
     )
     # outputs=[endpoint_name]
 
@@ -307,8 +307,8 @@ def deploy_endpoint_fn_task(scope):
         payload={
             'model_name': scope.model_name,
             'model_package_group_name':scope.model_package_group_name,
-            'model_package_version_param': scope.model_package_version_param,
-            'instance_type_param': scope.endpoint_instance_type_param,
+            'model_package_version': scope.model_package_version,
+            'instance_type': scope.endpoint_instance_type,
             'data_capture_dir':scope.data_capture_dir
 
         },

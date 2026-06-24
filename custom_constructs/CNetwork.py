@@ -20,18 +20,23 @@ class CNetwork(Construct):
         #     # Uncommon - other aws_ec2.Vpc constructor args
         # )
         ###############
-        super.__init__(scope, construct_id)
+        super().__init__(scope, construct_id)
         self.config = copy.deepcopy(vpc_config)
 
         # Import existing Vpc
         self.security_group=ec2.SecurityGroup.from_security_group_id(self, f"{construct_id}SG", vpc_config["SECURITY_GROUP"])
-        subnet_ids = availability_zones = route_table_ids = self.subnets = []
+        subnet_ids = []
+        availability_zones = []
+        route_table_ids = []
+        self.subnets = []
+        print(f'route_table_ids {route_table_ids}')
         for i, s in enumerate(vpc_config["SUBNETS"]):
             subnet_ids.append(s["ID"])
             availability_zones.append(s["AZ"])
             route_table_ids.append(s["ROUTE_TABLE"])
-            self.subnets.append(ec2.Subnet.from_subnet_attributes(self, f"{construct_id}Subnet{i}", subnet_id=s["ID"]), availability_zone=s["AZ"], route_table_id=s["ROUTE_TABLE"])
+            self.subnets.append(ec2.Subnet.from_subnet_attributes(self, f"{construct_id}Subnet{i}", subnet_id=s["ID"], availability_zone=s["AZ"], route_table_id=s["ROUTE_TABLE"]))
         
+        print(f'route_table_ids {route_table_ids}')
         self.vpc = ec2.Vpc.from_vpc_attributes(
             self,
             f"{construct_id}Vpc",

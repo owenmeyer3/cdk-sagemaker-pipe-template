@@ -27,7 +27,7 @@ class CFargateTaskDefinition(ecs.FargateTaskDefinition):
 
         self.container_repo = None
         self.task_log_group = None
-        super.__init__(scope, construct_id, family=family, **kwargs)
+        super().__init__(scope, construct_id, family=family, **kwargs)
     
     def add_ecr_container(
             self,

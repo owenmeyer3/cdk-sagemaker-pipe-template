@@ -24,10 +24,10 @@ def handler(event, context):
     
     model_name = event['model_name']
     model_package_group_name = event['model_package_group_name']  
-    model_package_version_param = event['model_package_version_param']
-    instance_type = event['instance_type_param']
+    model_package_version = event['model_package_version']
+    instance_type = event['instance_type']
     data_capture_dir = event['data_capture_dir'] # 's3://omm-test-bucket/data-capture/abalone'
-    endpoint_name=f'{model_package_group_name}-{model_package_version_param}-endpoint',
+    endpoint_name=f'{model_package_group_name}-{model_package_version}-endpoint',
     endpoint_config_name = endpoint_name + "-config"
 
     # Create or select endpoint

@@ -14,7 +14,7 @@ with open('config.json') as f:
     project_config=config_file['project']
     env_config=config_file[env_name]
 
-env=cdk.Environment(account=env_config['ACCOUNT'], region=env_config['REGION'])
+env=cdk.Environment(account=env_config['ACCOUNT'], region=env_config['REGION_NAME'])
 SagemakerPipeTemplateStack(app, f"CdkProjectStack-{env_name}",env=env, project_config=project_config, env_config=env_config)
 
 app.synth()

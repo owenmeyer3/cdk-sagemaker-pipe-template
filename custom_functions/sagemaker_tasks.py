@@ -1,16 +1,9 @@
 import os, pathlib
 from aws_cdk import (
-    Stack,
     Duration,
-    RemovalPolicy,
     aws_ec2 as ec2,
-    aws_iam as iam,
-    aws_logs as logs,
-    aws_stepfunctions as stepfunctions,
-    aws_events as events,
-    aws_events_targets as targets,
-    aws_ecr_assets as ecr_assets,
-    aws_stepfunction_tasks as tasks
+    aws_stepfunctions_tasks as tasks,
+    aws_stepfunctions as stepfunctions
 )
 from custom_constructs.CNetwork import CNetwork
 from custom_constructs.CLambda import CLambdaFunction
@@ -22,10 +15,12 @@ def instance_class(instance):
 def instance_size(instance):
     return instance.split('.')[2]
 
-def get_baseline_transform_task(scope):
+
+
+def get_baseline_transform_task(scope, model_name_lookup):
     tasks.SageMakerCreateTransformJob(scope, "Transform",
         # transform_job_name="MyTransformJob",
-        model_name=scope.model_name,
+        model_name=stepfunctions.JsonPath.string_at(model_name_lookup),
         model_client_options=tasks.ModelClientOptions(
             invocations_max_retries=3,  # default is 0
             invocations_timeout=Duration.minutes(5)
@@ -47,10 +42,10 @@ def get_baseline_transform_task(scope):
         )
     )
 
-def get_batch_transform_task(scope):
+def get_batch_transform_task(scope, model_name_lookup, batch_input_dir_lookup):
     tasks.SageMakerCreateTransformJob(scope, "Transform",
         # transform_job_name="MyTransformJob",
-        model_name=scope.model_name,
+        model_name=stepfunctions.JsonPath.string_at(model_name_lookup),
         model_client_options=tasks.ModelClientOptions(
             invocations_max_retries=3,  # default is 0
             invocations_timeout=Duration.minutes(5)

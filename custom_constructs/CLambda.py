@@ -25,7 +25,7 @@ class CLambdaFunction(Construct):
         # )
         ###############
 
-        super.__init__(scope, construct_id)
+        super().__init__(scope, construct_id)
 
         # add log group
         if 'log_group' in kwargs:
@@ -56,19 +56,31 @@ class CLambdaFunction(Construct):
                 raise ValueError("if code_path, handler and runtime msut exist for lambda function when not using docker")
             code_path=kwargs.pop('code_path', None)
             handler=kwargs.pop('handler', None)
-            runtime=kwargs.pop('runtime', None)
-            self.fn=_lambda.Function(self, f"{self.node.id}Fn",runtime=runtime,handler=handler,code = _lambda.Code.from_asset(code_path), **kwargs)
+            runtime=kwargs.pop('runtime', 'python3.11')
+            print(code_path)
+            # self.fn=_lambda.Function(self, f"{self.node.id}Fn",runtime=runtime,handler=handler, code = _lambda.Code.from_asset(code_path), **kwargs)
+            self.fn=_lambda.Function(self, f"{self.node.id}Fn", runtime=_lambda.Runtime(runtime), handler=handler, code = _lambda.Code.from_asset(code_path), **kwargs)
+
     
-    def generate_task(self, payload:dict={}, **kwargs) -> tasks.LambdaInvoke:
-        task_timeout=kwargs.pop('task_timeout', stepfunctions.Timeout.duration.minutes(10))
+    
+    def generate_task(self, payload:dict={}, outputs=[], **kwargs) -> tasks.LambdaInvoke:
+        task_timeout=kwargs.pop('task_timeout', stepfunctions.Timeout.duration(Duration.minutes(10)))
+
+        result_selection={}
+        for o in outputs:
+            result_selection[f'{o}.$'] = f'$.Payload.{o}'
+
         task = tasks.LambdaInvoke(
             self, f"{self.node.id}Task", 
             lambda_function=self.fn, 
             payload=stepfunctions.TaskInput.from_object(payload), 
             task_timeout=task_timeout, 
-            retry_on_service_exceptions=False, 
+            retry_on_service_exceptions=False,
+            result_selector=result_selection,
+            result_path=f"$.{self.node.id}Task",
             **kwargs
             )
+
         return task
     
     def add_invoker_arn(self, invoker_arn, **kwargs):

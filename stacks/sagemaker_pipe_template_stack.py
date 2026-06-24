@@ -16,7 +16,8 @@ from custom_constructs.CNetwork import CNetwork
 from custom_constructs.CLambda import CLambdaFunction
 from custom_constructs.CECS import CFargateTaskDefinition
 from custom_constructs.utils import get_local_project_root
-import lambda_tasks, sagemaker_tasks
+import custom_functions.lambda_tasks as lambda_tasks
+import custom_functions.sagemaker_tasks as sagemaker_tasks 
 
 class SagemakerPipeTemplateStack(Stack):
 
@@ -36,7 +37,7 @@ class SagemakerPipeTemplateStack(Stack):
         self.other_execution_role_arn=env_config['OTHER_EXECUTION_ROLE_ARN']
         self.pipeline_bucket=env_config['PIPELINE_BUCKET']
         self.region_name = env_config['REGION_NAME']
-        assert os.environ('ACTION') not in ['deploy', 'inference'], 'ACTION must be in [deploy, inference]'
+        assert os.getenv('ACTION') not in ['deploy', 'inference'], 'ACTION must be in [deploy, inference]'
 
         self.pipeline_dir =   f's3://{self.pipeline_bucket}/pipelines/{self.model_package_group_name}'
         self.baseline_dir =   f'{self.pipeline_dir}/baseline'
@@ -49,28 +50,44 @@ class SagemakerPipeTemplateStack(Stack):
         self.me_monitor_dir=  f'{self.pipeline_dir}/model-explainability'
         self.db_monitor_dir=  f'{self.pipeline_dir}/data-bias'
 
-        self.pipeline_dir =                             os.environ['MODEL_PACKAGE_VERSION']# :1,
-        self.action_type =                              os.environ['ACTION']# :'deploy',
-        self.baseline_file =                            os.environ['BASELINE_FILE']# :'aaa',
-        self.monitor_instance_type =                    os.environ['MONITOR_INSTANCE_TYPE']# :'ml.m5.large',
-        self.endpoint_instance_type =                   os.environ['ENDPOINT_INSTANCE_TYPE']# :'ml.m5.large',
-        self.transform_instance_type =                  os.environ['TRANSFORM_INSTANCE_TYPE']# :'ml.m5.large',
-        self.fail_on_violation =                        os.environ['FAIL_ON_VIOLATION']# :False,
-        self.rgister_new_baseline =                     os.environ['RGISTER_NEW_BASELINE']# :False,
-        self.monitor_schedule_expression =              os.environ['MONITOR_SCHEDULE_EXPRESSION']# :'cron(0 * ? * * *)',
-        self.enable_data_quality_monitoring =           os.environ['ENABLE_DATA_QUALITY_MONITORING']# :True,
-        self.enable_model_bias_monitoring =             os.environ['ENABLE_MODEL_BIAS_MONITORING']# :True,
-        self.enable_model_explainability_monitoring =   os.environ['ENABLE_MODEL_EXPLAINABILITY_MONITORING']# :True,
-        self.enable_model_quality_monitoring =          os.environ['ENABLE_MODEL_QUALITY_MONITORING']# :True,
-        self.sns_topic_arn =                            os.environ['SNS_TOPIC_ARN']# :'aaa',
-        self.enable_sns_notification =                  os.environ['ENABLE_SNS_NOTIFICATION']# :False,
-        self.ground_truth_dir =                         os.environ['GROUND_TRUTH_DIR']# :f's3://omm-test-bucket/ground-truth/abalone',
-        self.batch_input_dir =                          os.environ['BATCH_INPUT_DIR']# :f's3://omm-test-bucket/batch_input/abalone',
+        # self.model_package_version =                    os.getenv('MODEL_PACKAGE_VERSION')# :1,
+        # self.action_type =                              os.getenv('ACTION')# :'deploy',
+        # self.baseline_file =                            os.getenv('BASELINE_FILE')# :'aaa',
+        # self.monitor_instance_type =                    os.getenv('MONITOR_INSTANCE_TYPE')# :'ml.m5.large',
+        # self.endpoint_instance_type =                   os.getenv('ENDPOINT_INSTANCE_TYPE')# :'ml.m5.large',
+        # self.transform_instance_type =                  os.getenv('TRANSFORM_INSTANCE_TYPE')# :'ml.m5.large',
+        # self.fail_on_violation =                        os.getenv('FAIL_ON_VIOLATION')# :False,
+        # self.register_new_baseline =                     os.getenv('REGISTER_NEW_BASELINE')# :False,
+        # self.monitor_schedule_expression =              os.getenv('MONITOR_SCHEDULE_EXPRESSION')# :'cron(0 * ? * * *)',
+        # self.enable_data_quality_monitoring =           os.getenv('ENABLE_DATA_QUALITY_MONITORING')# :True,
+        # self.enable_model_bias_monitoring =             os.getenv('ENABLE_MODEL_BIAS_MONITORING')# :True,
+        # self.enable_model_explainability_monitoring =   os.getenv('ENABLE_MODEL_EXPLAINABILITY_MONITORING')# :True,
+        # self.enable_model_quality_monitoring =          os.getenv('ENABLE_MODEL_QUALITY_MONITORING')# :True,
+        # self.sns_topic_arn =                            os.getenv('SNS_TOPIC_ARN')# :'aaa',
+        # self.enable_sns_notification =                  os.getenv('ENABLE_SNS_NOTIFICATION')# :False,
+        # self.ground_truth_dir =                         os.getenv('GROUND_TRUTH_DIR')# :f's3://omm-test-bucket/ground-truth/abalone',
+        # self.batch_input_dir =                          os.getenv('BATCH_INPUT_DIR')# :f's3://omm-test-bucket/batch_input/abalone',
+        self.model_package_version_lkp = sfn.JsonPath.string_at('$.MODEL_PACKAGE_VERSION')
+        self.action_type_lkp = sfn.JsonPath.string_at('$.ACTION')
+        self.baseline_file_lkp = sfn.JsonPath.string_at('$.BASELINE_FILE')
+        self.monitor_instance_type_lkp = sfn.JsonPath.string_at('$.MONITOR_INSTANCE_TYPE')
+        self.endpoint_instance_type_lkp = sfn.JsonPath.string_at('$.ENDPOINT_INSTANCE_TYPE')
+        self.transform_instance_type_lkp = sfn.JsonPath.string_at('$.TRANSFORM_INSTANCE_TYPE')
+        self.fail_on_violation_lkp = sfn.JsonPath.string_at('$.FAIL_ON_VIOLATION')
+        self.monitor_schedule_expression_lkp = sfn.JsonPath.string_at('$.MONITOR_SCHEDULE_EXPRESSION')
+        self.enable_data_quality_monitoring_lkp = sfn.JsonPath.string_at('$.ENABLE_DATA_QUALITY_MONITORING')
+        self.enable_model_bias_monitoring_lkp = sfn.JsonPath.string_at('$.ENABLE_MODEL_BIAS_MONITORING')
+        self.enable_model_explainability_monitoring_lkp = sfn.JsonPath.string_at('$.ENABLE_MODEL_EXPLAINABILITY_MONITORING')
+        self.enable_model_quality_monitoring_lkp = sfn.JsonPath.string_at('$.ENABLE_MODEL_QUALITY_MONITORING')
+        self.sns_topic_arn_lkp = sfn.JsonPath.string_at('$.SNS_TOPIC_ARN')
+        self.enable_sns_notification_lkp = sfn.JsonPath.string_at('$.ENABLE_SNS_NOTIFICATION')
+        self.ground_truth_dir_lkp = sfn.JsonPath.string_at('$.GROUND_TRUTH_DIR')
+        self.batch_input_dir_lkp = sfn.JsonPath.string_at('$.BATCH_INPUT_DIR')
 
         # Import existing resources
-        self.lambda_execution_role_arn=iam.Role.from_role_arn(self, "ImportedExecutionRole", env_config['LAMBDA_EXECUTION_ROLE_ARN'], mutable=False)
-        self.other_execution_role_arn=iam.Role.from_role_arn(self, "ImportedExecutionRole", env_config['OTHER_EXECUTION_ROLE_ARN'], mutable=False)
-        self.network = CNetwork(self, "ImportedNetwork", region=env_config['REGION'], vpc_config=env_config['VPC_CONFIG'])
+        self.lambda_execution_role_arn=iam.Role.from_role_arn(self, "ImportedLambdaExecutionRole", env_config['LAMBDA_EXECUTION_ROLE_ARN'], mutable=False)
+        self.other_execution_role_arn=iam.Role.from_role_arn(self, "ImportedOtherExecutionRole", env_config['OTHER_EXECUTION_ROLE_ARN'], mutable=False)
+        self.network = CNetwork(self, "ImportedNetwork", region=env_config['REGION_NAME'], vpc_config=env_config['VPC_CONFIG'])
         # self.cluster = ecs.Cluster.from_cluster_attributes(self, "ImportedCluster", cluster_name=env_config['CLUSTER_NAME'], vpc=self.network.get_vpc())
 
         chain = stepfunctions.Pass(self, 'Start')
@@ -84,24 +101,24 @@ class SagemakerPipeTemplateStack(Stack):
         deploy_or_inference_choice = stepfunctions.Choice(self, "DeployOrInferenceChoice")
         deploy_or_inference_cond = stepfunctions.Condition.string_equals("$.deploy_or_inference", "deploy")
 
-        schedule_dq_mon_choice = stepfunctions.Choice(self, "ScheduleDqMonChoice")
-        schedule_dq_mon_cond = stepfunctions.Condition.string_equals("$.scheduleDqMonChoice", "TRUE")
+        # schedule_dq_mon_choice = stepfunctions.Choice(self, "ScheduleDqMonChoice")
+        # schedule_dq_mon_cond = stepfunctions.Condition.string_equals("$.scheduleDqMonChoice", "TRUE")
 
-        schedule_mq_mon_choice = stepfunctions.Choice(self, "ScheduleMqMonChoice")
-        schedule_mq_mon_cond = stepfunctions.Condition.string_equals("$.scheduleMqMonChoice", "TRUE")
+        # schedule_mq_mon_choice = stepfunctions.Choice(self, "ScheduleMqMonChoice")
+        # schedule_mq_mon_cond = stepfunctions.Condition.string_equals("$.scheduleMqMonChoice", "TRUE")
         
-        schedule_me_mon_choice = stepfunctions.Choice(self, "ScheduleMeMonChoice")
-        schedule_me_mon_cond = stepfunctions.Condition.string_equals("$.scheduleMeMonChoice", "TRUE")
+        # schedule_me_mon_choice = stepfunctions.Choice(self, "ScheduleMeMonChoice")
+        # schedule_me_mon_cond = stepfunctions.Condition.string_equals("$.scheduleMeMonChoice", "TRUE")
         
-        schedule_mb_mon_choice = stepfunctions.Choice(self, "ScheduleMbMonChoice")
-        schedule_mb_mon_cond = stepfunctions.Condition.string_equals("$.scheduleMbMonChoice", "TRUE")
+        # schedule_mb_mon_choice = stepfunctions.Choice(self, "ScheduleMbMonChoice")
+        # schedule_mb_mon_cond = stepfunctions.Condition.string_equals("$.scheduleMbMonChoice", "TRUE")
 
 
 
         # TASKS
         get_or_create_model_from_registry_task, get_or_create_model_from_registry_function = lambda_tasks.get_get_or_create_model_from_registry_fn_task(self)
         prep_baseline_sets_task, prep_baseline_sets_function = lambda_tasks.prep_baseline_sets_fn_task(self)
-        baseline_transform_task = sagemaker_tasks.get_baseline_transform_task(self)
+        baseline_transform_task = sagemaker_tasks.get_baseline_transform_task(self, f'{get_or_create_model_from_registry_task._result_path}.model_name')
 
         get_baseline_preds_task = lambda_tasks.get_baseline_preds_fn_task(self)
         make_baseline_task = lambda_tasks.make_baseline_sets_fn_task(self)
@@ -111,17 +128,16 @@ class SagemakerPipeTemplateStack(Stack):
         schedule_me_task = lambda_tasks.schedule_me_task_fn_task(self, 'me-mon')
         schedule_mb_task = lambda_tasks.schedule_mb_task_fn_task(self, 'mb-mon')
 
-        check_dq_task = None
-        check_mq_task = None
-        check_me_task = None
-        check_mb_task = None
+        # check_dq_task = None
+        # check_mq_task = None
+        # check_me_task = None
+        # check_mb_task = None
 
         deploy_endpoint_task = lambda_tasks.deploy_endpoint_fn_task(self)
-        batch_transform_task = sagemaker_tasks.get_batch_transform_task(self)
+        batch_transform_task = sagemaker_tasks.get_batch_transform_task(self, f'{get_or_create_model_from_registry_task._result_path}.model_name')
 
         # MAPS
         ### SCHEDULE MONITOR MAP ###
-        schedule_monitor_map = None
         schedule_monitor_map_end_pass = stepfunctions.Pass(self, 'ScheduleMonitorMapEnd')
         schedule_monitor_map = stepfunctions.Map(self, "ScheduleMonitorMap",
             max_concurrency=1,
@@ -144,7 +160,7 @@ class SagemakerPipeTemplateStack(Stack):
         schedule_monitor_map.item_processor(schedule_map_chain)
 
         ### MONITOR_CHECK_MAP ###
-        check_monitor_map = None
+        check_monitor_map = stepfunctions.Pass(self, 'CheckMonitorMapDummy')
         # check_monitor_map_end_pass = stepfunctions.Pass(self, 'MonitorCheckMapEnd')
         # check_monitor_map = stepfunctions.Map(self, "CheckMonitorMap",
         #     max_concurrency=1,
