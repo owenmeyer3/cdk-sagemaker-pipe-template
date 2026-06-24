@@ -1,13 +1,14 @@
 import os, pathlib, json
 from aws_cdk import (
-    aws_logs as logs
+    aws_logs as logs,
+    aws_stepfunctions as stepfunctions
 )
 from custom_constructs.CNetwork import CNetwork
 from custom_constructs.CLambda import CLambdaFunction
 from custom_constructs.CECS import CFargateTaskDefinition
 from custom_constructs.utils import get_local_project_root
 
-def get_get_or_create_model_from_registry_fn_task(scope):
+def get_get_or_create_model_from_registry_fn_task(scope, model_package_group_name, model_package_version_lkp):
     function_name = "get_or_create_model_from_registry"
     lambda_function = CLambdaFunction(
         scope, "GetOrCreateModelFromRegistry",
@@ -24,15 +25,15 @@ def get_get_or_create_model_from_registry_fn_task(scope):
 
     task = lambda_function.generate_task(
         payload={
-            'model_package_group_name': scope.model_package_group_name,
-            'model_package_version': scope.model_package_version
+            'model_package_group_name': model_package_group_name,
+            'model_package_version': stepfunctions.JsonPath.string_at(model_package_version_lkp)
         },
         # result_selector={}
     )
     return [task, lambda_function]
 
 
-def prep_baseline_sets_fn_task(scope):
+def prep_baseline_sets_fn_task(scope, baseline_file_lkp, target_name, target_type, baseline_dir):
     function_name = "prep_baseline_sets"
     lambda_function = CLambdaFunction(
         scope, "PrepBaselineSets",
@@ -49,10 +50,10 @@ def prep_baseline_sets_fn_task(scope):
 
     task = lambda_function.generate_task(
         payload={
-            'baseline_file': scope.baseline_file,
-            'target_name':scope.target_name,
-            'target_type': scope.target_type,
-            'baseline_X_file_dest_dir':scope.baseline_dir
+            'baseline_file': stepfunctions.JsonPath.string_at(baseline_file_lkp),
+            'target_name':target_name,
+            'target_type': target_type,
+            'baseline_X_file_dest_dir':baseline_dir
         },
         # result_selector={}
     )
@@ -60,7 +61,7 @@ def prep_baseline_sets_fn_task(scope):
     return [task, lambda_function]
 
 
-def get_baseline_preds_fn_task(scope):
+def get_baseline_preds_fn_task(scope, transform_out_dir_lkp, target_name, target_type):
     function_name = "get_baseline_preds"
     lambda_function = CLambdaFunction(
         scope, "GetBaselinePreds",
@@ -77,9 +78,9 @@ def get_baseline_preds_fn_task(scope):
 
     task = lambda_function.generate_task(
         payload={
-            'transform_out_dir': scope.baseline_file,
-            'baseline_X_filename':scope.target_name,
-            'baseline_pred_file_dest': scope.target_type,
+            'transform_out_dir': stepfunctions.JsonPath.string_at(transform_out_dir_lkp),
+            'baseline_X_filename':target_name,
+            'baseline_pred_file_dest': target_type,
         },
         # result_selector={}
     )
@@ -88,7 +89,7 @@ def get_baseline_preds_fn_task(scope):
 
 
 
-def make_baseline_sets_fn_task(scope):
+def make_baseline_sets_fn_task(scope, baseline_file_lkp, baseline_pred_file_lkp, dq_monitor_dir, db_monitor_dir, mq_monitor_dir, mb_monitor_dir, me_monitor_dir, target_name, prediction_name, baseline_X_file_lkp, target_type):
     function_name = "make_baseline_sets"
     lambda_function = CLambdaFunction(
         scope, "MakeBaselineSets",
@@ -105,26 +106,42 @@ def make_baseline_sets_fn_task(scope):
 
     task = lambda_function.generate_task(
         payload={
-            'baseline_file': scope.baseline_file,
-            'baseline_pred_file':scope.baseline_pred_file,
-            'dq_monitor_dir': scope.dq_monitor_dir,
-            'db_monitor_dir': scope.db_monitor_dir,
-            'mq_monitor_dir':scope.mq_monitor_dir,
-            'mb_monitor_dir': scope.mb_monitor_dir,
-            'me_monitor_dir': scope.me_monitor_dir,
-            'target_name':scope.target_name,
-            'prediction_name': scope.prediction_name,
-            'baseline_X_file': scope.baseline_X_file,
-            'target_type':scope.target_type
+            'baseline_file': stepfunctions.JsonPath.string_at(baseline_file_lkp),
+            'baseline_pred_file':stepfunctions.JsonPath.string_at(baseline_pred_file_lkp),
+            'dq_monitor_dir': dq_monitor_dir,
+            'db_monitor_dir': db_monitor_dir,
+            'mq_monitor_dir':mq_monitor_dir,
+            'mb_monitor_dir': mb_monitor_dir,
+            'me_monitor_dir': me_monitor_dir,
+            'target_name':target_name,
+            'prediction_name': prediction_name,
+            'baseline_X_file': stepfunctions.JsonPath.string_at(baseline_X_file_lkp),
+            'target_type':target_type
         },
         # result_selector={}
     )
-    
+
     return [task, lambda_function]
 
 
 
-def schedule_dq_task_fn_task(scope, name, image_uri='156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer', instance_count=1, volume_size_in_gb=20, max_runtime_in_seconds=1800, dataset_format={'Csv': {'Header': True}}, schedule_expression='cron(0 * ? * * *)', data_analysis_start_time="-PT2H",data_analysis_end_time="-PT1H"):
+def schedule_dq_task_fn_task(scope, 
+        name, 
+        endpoint_name_lkp,
+        data_cature_dir,
+        other_execution_role_arn_lkp,
+        deploy_type,
+        dq_monitor_dir,
+        monitor_instance_type_lkp,
+        schedule_expression_lkp,
+        data_analysis_start_time_lkp,
+        data_analysis_end_time_lkp,
+        image_uri='156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer', 
+        instance_count=1, 
+        volume_size_in_gb=20, 
+        max_runtime_in_seconds=1800, 
+        dataset_format={'Csv': {'Header': True}}
+    ):
     function_name = "schedule_data_quality"
     lambda_function = CLambdaFunction(
         scope, "ScheduleDataQuality",
@@ -141,21 +158,21 @@ def schedule_dq_task_fn_task(scope, name, image_uri='156813124566.dkr.ecr.us-eas
 
     task = lambda_function.generate_task(
         payload={
-            'endpoint_name': scope.endpoint_name,
-            'data_cature_dir':scope.data_cature_dir,
             'name': name,
-            'monitor_role': scope.other_execution_role_arn,
-            'deploy_type':scope.deploy_type,
-            'monitor_dir': scope.dq_monitor_dir,
+            'endpoint_name': stepfunctions.JsonPath.string_at(endpoint_name_lkp),
+            'data_cature_dir':data_cature_dir,
+            'monitor_role': stepfunctions.JsonPath.string_at(other_execution_role_arn_lkp),
+            'deploy_type':deploy_type,
+            'monitor_dir': dq_monitor_dir,
             'image_uri': image_uri,
             'instance_count':instance_count,
-            'instance_type':scope.monitor_instance_type,
+            'instance_type':stepfunctions.JsonPath.string_at(monitor_instance_type_lkp),
             'volume_size_in_gb': volume_size_in_gb,
             'max_runtime_in_seconds': max_runtime_in_seconds,
             'dataset_format':json.dumps(dataset_format),
-            'schedule_expression':schedule_expression,
-            'data_analysis_start_time':data_analysis_start_time,
-            'data_analysis_end_time':data_analysis_end_time,
+            'schedule_expression':stepfunctions.JsonPath.string_at(schedule_expression_lkp),
+            'data_analysis_start_time':stepfunctions.JsonPath.string_at(data_analysis_start_time_lkp),
+            'data_analysis_end_time':stepfunctions.JsonPath.string_at(data_analysis_end_time_lkp)
 
         },
         # result_selector={}
@@ -164,7 +181,25 @@ def schedule_dq_task_fn_task(scope, name, image_uri='156813124566.dkr.ecr.us-eas
     return [task, lambda_function]
 
 
-def schedule_mb_task_fn_task(scope, name, image_uri='156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer', instance_count=1, volume_size_in_gb=20, max_runtime_in_seconds=1800, dataset_format={'Csv': {'Header': True}}, schedule_expression='cron(0 * ? * * *)', data_analysis_start_time="-PT2H",data_analysis_end_time="-PT1H"):
+def schedule_mb_task_fn_task(scope, 
+        name, 
+        endpoint_name_lkp,
+        data_cature_dir,
+        other_execution_role_arn_lkp,
+        deploy_type,
+        mb_monitor_dir,
+        ground_truth_dir,
+        monitor_instance_type_lkp,
+        schedule_expression_lkp,
+        data_analysis_start_time_lkp,
+        data_analysis_end_time_lkp,
+        image_uri='156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer', 
+        instance_count=1, 
+        volume_size_in_gb=20, 
+        max_runtime_in_seconds=1800, 
+        dataset_format={'Csv': {'Header': True}}
+    ):
+    
     function_name = "schedule_model_bias"
     lambda_function = CLambdaFunction(
         scope, "ScheduleModelBias",
@@ -181,22 +216,22 @@ def schedule_mb_task_fn_task(scope, name, image_uri='156813124566.dkr.ecr.us-eas
 
     task = lambda_function.generate_task(
         payload={
-            'endpoint_name': scope.endpoint_name,
-            'data_cature_dir':scope.data_cature_dir,
             'name': name,
-            'monitor_role': scope.other_execution_role_arn,
-            'deploy_type':scope.deploy_type,
-            'monitor_dir': scope.mb_monitor_dir,
-            'ground_truth_dir': scope.ground_truth_dir,
+            'endpoint_name': stepfunctions.JsonPath.string_at(endpoint_name_lkp),
+            'data_cature_dir':data_cature_dir,
+            'monitor_role': stepfunctions.JsonPath.string_at(other_execution_role_arn_lkp),
+            'deploy_type':deploy_type,
+            'monitor_dir': mb_monitor_dir,
+            'ground_truth_dir': ground_truth_dir,
             'image_uri': image_uri,
             'instance_count':instance_count,
-            'instance_type':scope.monitor_instance_type,
+            'instance_type':stepfunctions.JsonPath.string_at(monitor_instance_type_lkp),
             'volume_size_in_gb': volume_size_in_gb,
             'max_runtime_in_seconds': max_runtime_in_seconds,
             'dataset_format':json.dumps(dataset_format),
-            'schedule_expression':schedule_expression,
-            'data_analysis_start_time':data_analysis_start_time,
-            'data_analysis_end_time':data_analysis_end_time,
+            'schedule_expression':stepfunctions.JsonPath.string_at(schedule_expression_lkp),
+            'data_analysis_start_time':stepfunctions.JsonPath.string_at(data_analysis_start_time_lkp),
+            'data_analysis_end_time':stepfunctions.JsonPath.string_at(data_analysis_end_time_lkp)
 
         },
         # result_selector={}
@@ -205,7 +240,24 @@ def schedule_mb_task_fn_task(scope, name, image_uri='156813124566.dkr.ecr.us-eas
     return [task, lambda_function]
 
 
-def schedule_me_task_fn_task(scope, name, image_uri='156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer', instance_count=1, volume_size_in_gb=20, max_runtime_in_seconds=1800, dataset_format={'Csv': {'Header': True}}, schedule_expression='cron(0 * ? * * *)', data_analysis_start_time="-PT2H",data_analysis_end_time="-PT1H"):
+def schedule_me_task_fn_task(scope, 
+        name, 
+        endpoint_name_lkp,
+        data_cature_dir,
+        other_execution_role_arn_lkp,
+        deploy_type,
+        me_monitor_dir,
+        monitor_instance_type_lkp,
+        schedule_expression_lkp,
+        data_analysis_start_time_lkp,
+        data_analysis_end_time_lkp,
+        image_uri='156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer', 
+        instance_count=1, 
+        volume_size_in_gb=20, 
+        max_runtime_in_seconds=1800, 
+        dataset_format={'Csv': {'Header': True}}
+    ):
+    
     function_name = "schedule_model_explainability"
     lambda_function = CLambdaFunction(
         scope, "ScheduleModelExplainability",
@@ -222,21 +274,21 @@ def schedule_me_task_fn_task(scope, name, image_uri='156813124566.dkr.ecr.us-eas
 
     task = lambda_function.generate_task(
         payload={
-            'endpoint_name': scope.endpoint_name,
-            'data_cature_dir':scope.data_cature_dir,
             'name': name,
-            'monitor_role': scope.other_execution_role_arn,
-            'deploy_type':scope.deploy_type,
-            'monitor_dir': scope.me_monitor_dir,
+            'endpoint_name': stepfunctions.JsonPath.string_at(endpoint_name_lkp),
+            'data_cature_dir':data_cature_dir,
+            'monitor_role': stepfunctions.JsonPath.string_at(other_execution_role_arn_lkp),
+            'deploy_type':deploy_type,
+            'monitor_dir': me_monitor_dir,
             'image_uri': image_uri,
             'instance_count':instance_count,
-            'instance_type':scope.monitor_instance_type,
+            'instance_type':stepfunctions.JsonPath.string_at(monitor_instance_type_lkp),
             'volume_size_in_gb': volume_size_in_gb,
             'max_runtime_in_seconds': max_runtime_in_seconds,
             'dataset_format':json.dumps(dataset_format),
-            'schedule_expression':schedule_expression,
-            'data_analysis_start_time':data_analysis_start_time,
-            'data_analysis_end_time':data_analysis_end_time,
+            'schedule_expression':stepfunctions.JsonPath.string_at(schedule_expression_lkp),
+            'data_analysis_start_time':stepfunctions.JsonPath.string_at(data_analysis_start_time_lkp),
+            'data_analysis_end_time':stepfunctions.JsonPath.string_at(data_analysis_end_time_lkp)
 
         },
         # result_selector={}
@@ -245,7 +297,26 @@ def schedule_me_task_fn_task(scope, name, image_uri='156813124566.dkr.ecr.us-eas
     return [task, lambda_function]
 
 
-def schedule_mq_task_fn_task(scope, name, image_uri='156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer', instance_count=1, volume_size_in_gb=20, max_runtime_in_seconds=1800, dataset_format={'Csv': {'Header': True}}, schedule_expression='cron(0 * ? * * *)', data_analysis_start_time="-PT2H",data_analysis_end_time="-PT1H"):
+def schedule_mq_task_fn_task(scope, 
+        name, 
+        endpoint_name_lkp,
+        data_cature_dir,
+        other_execution_role_arn_lkp,
+        deploy_type,
+        problem_type,
+        ground_truth_label,
+        ground_truth_dir,
+        mq_monitor_dir,
+        monitor_instance_type_lkp,
+        schedule_expression_lkp,
+        data_analysis_start_time_lkp,
+        data_analysis_end_time_lkp,
+        image_uri='156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer', 
+        instance_count=1, 
+        volume_size_in_gb=20, 
+        max_runtime_in_seconds=1800, 
+        dataset_format={'Csv': {'Header': True}}
+    ):
     function_name = "schedule_model_quality"
     lambda_function = CLambdaFunction(
         scope, "ScheduleModelQuality",
@@ -262,24 +333,24 @@ def schedule_mq_task_fn_task(scope, name, image_uri='156813124566.dkr.ecr.us-eas
 
     task = lambda_function.generate_task(
         payload={
-            'endpoint_name': scope.endpoint_name,
-            'data_cature_dir':scope.data_cature_dir,
             'name': name,
-            'monitor_role': scope.other_execution_role_arn,
-            'deploy_type':scope.deploy_type,
-            'problem_type':scope.problem_type,
-            'ground_truth_label':scope.ground_truth_label,
-            'monitor_dir': scope.mq_monitor_dir,
-            'ground_truth_dir':scope.ground_truth_dir,
+            'endpoint_name': stepfunctions.JsonPath.string_at(endpoint_name_lkp),
+            'data_cature_dir':data_cature_dir,
+            'monitor_role': stepfunctions.JsonPath.string_at(other_execution_role_arn_lkp),
+            'deploy_type':deploy_type,
+            'problem_type':problem_type,
+            'ground_truth_label':ground_truth_label,
+            'monitor_dir': mq_monitor_dir,
+            'ground_truth_dir':ground_truth_dir,
             'image_uri': image_uri,
             'instance_count':instance_count,
-            'instance_type':scope.monitor_instance_type,
+            'instance_type':stepfunctions.JsonPath.string_at(monitor_instance_type_lkp),
             'volume_size_in_gb': volume_size_in_gb,
             'max_runtime_in_seconds': max_runtime_in_seconds,
             'dataset_format':json.dumps(dataset_format),
-            'schedule_expression':schedule_expression,
-            'data_analysis_start_time':data_analysis_start_time,
-            'data_analysis_end_time':data_analysis_end_time,
+            'schedule_expression':stepfunctions.JsonPath.string_at(schedule_expression_lkp),
+            'data_analysis_start_time':stepfunctions.JsonPath.string_at(data_analysis_start_time_lkp),
+            'data_analysis_end_time':stepfunctions.JsonPath.string_at(data_analysis_end_time_lkp)
 
         },
         # result_selector={}
@@ -288,7 +359,7 @@ def schedule_mq_task_fn_task(scope, name, image_uri='156813124566.dkr.ecr.us-eas
     return [task, lambda_function]
 
 
-def deploy_endpoint_fn_task(scope):
+def deploy_endpoint_fn_task(scope, model_name_lkp, model_package_group_name, model_package_version_lkp, endpoint_instance_type_lkp, data_capture_dir):
     function_name = "deploy_endpoint"
     lambda_function = CLambdaFunction(
         scope, "DeployEndpoint",
@@ -305,11 +376,11 @@ def deploy_endpoint_fn_task(scope):
 
     task = lambda_function.generate_task(
         payload={
-            'model_name': scope.model_name,
-            'model_package_group_name':scope.model_package_group_name,
-            'model_package_version': scope.model_package_version,
-            'instance_type': scope.endpoint_instance_type,
-            'data_capture_dir':scope.data_capture_dir
+            'model_name': stepfunctions.JsonPath.string_at(model_name_lkp),
+            'model_package_group_name':model_package_group_name,
+            'model_package_version': stepfunctions.JsonPath.string_at(model_package_version_lkp),
+            'instance_type': stepfunctions.JsonPath.string_at(endpoint_instance_type_lkp),
+            'data_capture_dir':data_capture_dir
 
         },
         # result_selector={}

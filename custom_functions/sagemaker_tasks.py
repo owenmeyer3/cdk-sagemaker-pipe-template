@@ -17,10 +17,10 @@ def instance_size(instance):
 
 
 
-def get_baseline_transform_task(scope, model_name_lookup):
+def get_baseline_transform_task(scope, model_name_lkp, baseline_file_lkp):
     tasks.SageMakerCreateTransformJob(scope, "Transform",
         # transform_job_name="MyTransformJob",
-        model_name=stepfunctions.JsonPath.string_at(model_name_lookup),
+        model_name=stepfunctions.JsonPath.string_at(model_name_lkp),
         model_client_options=tasks.ModelClientOptions(
             invocations_max_retries=3,  # default is 0
             invocations_timeout=Duration.minutes(5)
@@ -28,7 +28,7 @@ def get_baseline_transform_task(scope, model_name_lookup):
         transform_input=tasks.TransformInput(
             transform_data_source=tasks.TransformDataSource(
                 s3_data_source=tasks.TransformS3DataSource(
-                    s3_uri=scope.baseline_file,
+                    s3_uri=stepfunctions.JsonPath.string_at(baseline_file_lkp),
                     s3_data_type=tasks.S3DataType.S3_PREFIX
                 )
             )
@@ -41,11 +41,24 @@ def get_baseline_transform_task(scope, model_name_lookup):
             instance_type=ec2.InstanceType.of(instance_class(scope.transform_instance_type), instance_size(scope.transform_instance_type))
         )
     )
+    # Output
+    # {
+    #     "TransformJobName": "my-transform-job",
+    #     "TransformJobArn": "arn:aws:sagemaker:us-east-1:...",
+    #     "TransformJobStatus": "Completed",
+    #     "ModelName": "abalone-v1",
+    #     "TransformInput": {"DataSource": { "S3DataSource": { "S3DataType": "S3Prefix", "S3Uri": "s3://bucket/input/" } }, "ContentType": "text/csv", "SplitType": "Line" },
+    #     "TransformOutput": { "S3OutputPath": "s3://bucket/output/", "AssembleWith": "Line" },
+    #     "TransformResources": { "InstanceType": "ml.m5.large", "InstanceCount": 1 },
+    #     "CreationTime": "...",
+    #     "TransformStartTime": "...",
+    #     "TransformEndTime": "..."
+    # }
 
-def get_batch_transform_task(scope, model_name_lookup, batch_input_dir_lookup):
+def get_batch_transform_task(scope, model_name_lkp, batch_input_dir_lkp):
     tasks.SageMakerCreateTransformJob(scope, "Transform",
         # transform_job_name="MyTransformJob",
-        model_name=stepfunctions.JsonPath.string_at(model_name_lookup),
+        model_name=stepfunctions.JsonPath.string_at(model_name_lkp),
         model_client_options=tasks.ModelClientOptions(
             invocations_max_retries=3,  # default is 0
             invocations_timeout=Duration.minutes(5)
@@ -53,7 +66,7 @@ def get_batch_transform_task(scope, model_name_lookup, batch_input_dir_lookup):
         transform_input=tasks.TransformInput(
             transform_data_source=tasks.TransformDataSource(
                 s3_data_source=tasks.TransformS3DataSource(
-                    s3_uri=stepfunctions.JsonPath.string_at(model_name_lookup),
+                    s3_uri=stepfunctions.JsonPath.string_at(batch_input_dir_lkp),
                     s3_data_type=tasks.S3DataType.S3_PREFIX
                 )
             )
@@ -66,3 +79,16 @@ def get_batch_transform_task(scope, model_name_lookup, batch_input_dir_lookup):
             instance_type=ec2.InstanceType.of(instance_class(scope.transform_instance_type), instance_size(scope.transform_instance_type))
         )
     )
+    # Output
+    # {
+    #     "TransformJobName": "my-transform-job",
+    #     "TransformJobArn": "arn:aws:sagemaker:us-east-1:...",
+    #     "TransformJobStatus": "Completed",
+    #     "ModelName": "abalone-v1",
+    #     "TransformInput": {"DataSource": { "S3DataSource": { "S3DataType": "S3Prefix", "S3Uri": "s3://bucket/input/" } }, "ContentType": "text/csv", "SplitType": "Line" },
+    #     "TransformOutput": { "S3OutputPath": "s3://bucket/output/", "AssembleWith": "Line" },
+    #     "TransformResources": { "InstanceType": "ml.m5.large", "InstanceCount": 1 },
+    #     "CreationTime": "...",
+    #     "TransformStartTime": "...",
+    #     "TransformEndTime": "..."
+    # }

@@ -24,7 +24,7 @@ class SagemakerPipeTemplateStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, project_config:dict, env_config:dict, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # Build Params
+        # Build Configs
         self.name = project_config['NAME']
         self.deploy_type=project_config['DEPLOY_TYPE']
         self.target_name=project_config['TARGET_NAME']
@@ -39,6 +39,7 @@ class SagemakerPipeTemplateStack(Stack):
         self.region_name = env_config['REGION_NAME']
         assert os.getenv('ACTION') not in ['deploy', 'inference'], 'ACTION must be in [deploy, inference]'
 
+        # Derived Params
         self.pipeline_dir =   f's3://{self.pipeline_bucket}/pipelines/{self.model_package_group_name}'
         self.baseline_dir =   f'{self.pipeline_dir}/baseline'
         self.monitors_dir=    f'{self.pipeline_dir}/monitors'
@@ -50,6 +51,7 @@ class SagemakerPipeTemplateStack(Stack):
         self.me_monitor_dir=  f'{self.pipeline_dir}/model-explainability'
         self.db_monitor_dir=  f'{self.pipeline_dir}/data-bias'
 
+        # Runtime Args
         # self.model_package_version =                    os.getenv('MODEL_PACKAGE_VERSION')# :1,
         # self.action_type =                              os.getenv('ACTION')# :'deploy',
         # self.baseline_file =                            os.getenv('BASELINE_FILE')# :'aaa',
@@ -96,27 +98,54 @@ class SagemakerPipeTemplateStack(Stack):
 
         # CHOICES / CONDITIONS
         rebaseline_choice = stepfunctions.Choice(self, "RebaselineChoice")
-        rebaseline_cond = stepfunctions.Condition.string_equals("$.rebaseline", "TRUE")
+        rebaseline_cond =   stepfunctions.Condition.string_equals("$.rebaseline", "TRUE")
         deploy_or_inference_choice = stepfunctions.Choice(self, "DeployOrInferenceChoice")
-        deploy_or_inference_cond = stepfunctions.Condition.string_equals("$.deploy_or_inference", "deploy")
+        deploy_or_inference_cond =   stepfunctions.Condition.string_equals("$.deploy_or_inference", "deploy")
         schedule_dq_mon_choice = stepfunctions.Choice(self, "ScheduleDqMonChoice")
-        schedule_dq_mon_cond = stepfunctions.Condition.string_equals("$.scheduleDqMonChoice", "TRUE")
-        schedule_mq_mon_choice = stepfunctions.Choice(self, "ScheduleMqMonChoice")
-        schedule_mq_mon_cond = stepfunctions.Condition.string_equals("$.scheduleMqMonChoice", "TRUE")
+        schedule_dq_mon_cond =   stepfunctions.Condition.string_equals("$.scheduleDqMonChoice", "TRUE")
+        schedule_mq_mon_choice =  stepfunctions.Choice(self, "ScheduleMqMonChoice")
+        schedule_mq_mon_cond =    stepfunctions.Condition.string_equals("$.scheduleMqMonChoice", "TRUE")
         schedule_me_mon_choice = stepfunctions.Choice(self, "ScheduleMeMonChoice")
-        schedule_me_mon_cond = stepfunctions.Condition.string_equals("$.scheduleMeMonChoice", "TRUE")
-        schedule_mb_mon_choice = stepfunctions.Choice(self, "ScheduleMbMonChoice")
-        schedule_mb_mon_cond = stepfunctions.Condition.string_equals("$.scheduleMbMonChoice", "TRUE")
+        schedule_me_mon_cond =   stepfunctions.Condition.string_equals("$.scheduleMeMonChoice", "TRUE")
+        schedule_mb_mon_choice =  stepfunctions.Choice(self, "ScheduleMbMonChoice")
+        schedule_mb_mon_cond =    stepfunctions.Condition.string_equals("$.scheduleMbMonChoice", "TRUE")
 
 
         # TASKS
         get_or_create_model_from_registry_task, get_or_create_model_from_registry_function = lambda_tasks.get_get_or_create_model_from_registry_fn_task(self)
-        prep_baseline_sets_task, prep_baseline_sets_function = lambda_tasks.prep_baseline_sets_fn_task(self)
-        baseline_transform_task = sagemaker_tasks.get_baseline_transform_task(self, f'{get_or_create_model_from_registry_task._result_path}.model_name')
+        model_name_lkp = f'{prep_baseline_sets_task._result_path}.model_name'
+        model_package_arn_lkp = f'{prep_baseline_sets_task._result_path}.model_package_arn'
 
+
+        prep_baseline_sets_task, prep_baseline_sets_function = lambda_tasks.prep_baseline_sets_fn_task(self)
+        baseline_X_dir_lkp = f'{prep_baseline_sets_task._result_path}.baseline_X_dir'
+        baseline_X_file_lkp = f'{prep_baseline_sets_task._result_path}.baseline_X_file'
+        baseline_X_filename_lkp = f'{prep_baseline_sets_task._result_path}.baseline_X_filename'
+
+        baseline_transform_task = sagemaker_tasks.get_baseline_transform_task(self, model_name_lkp, self.baseline_file_lkp)
+        transform_out_dir_lkp = f'{baseline_transform_task._result_path}.TransformOutput.S3OutputPath' # "s3://bucket/output/"
         
-        get_baseline_preds_task = lambda_tasks.get_baseline_preds_fn_task(self)
-        make_baseline_task = lambda_tasks.make_baseline_sets_fn_task(self)
+        get_baseline_preds_task = lambda_tasks.get_baseline_preds_fn_task(self, transform_out_dir_lkp, self.target_name, self.target_type)
+        baseline_pred_file_lkp = transform_out_dir_lkp = f'{get_baseline_preds_task._result_path}.baseline_pred_file'
+
+
+
+        make_baseline_task = lambda_tasks.make_baseline_sets_fn_task(
+            self, 
+            self.baseline_file_lkp, 
+            baseline_pred_file_lkp, 
+            self.dq_monitor_dir, 
+            self.db_monitor_dir, 
+            self.mq_monitor_dir, 
+            self.mb_monitor_dir, 
+            self.me_monitor_dir, 
+            self.target_name, 
+            self.prediction_name, 
+            baseline_X_file_lkp, 
+            self.target_type
+        )
+
+
         
         # Parallel Monitor Schedule
         end_parallel_monitor_scheduler = stepfunctions.Pass(self, 'EndParallelMonitorScheduler')
@@ -143,40 +172,54 @@ class SagemakerPipeTemplateStack(Stack):
         parallel_monitor_scheduler.branch(conditional_schedule_mq_tasks)
         parallel_monitor_scheduler.branch(conditional_schedule_me_tasks)
         parallel_monitor_scheduler.branch(conditional_schedule_mb_tasks)
+        parallel_monitor_scheduler.next(end_parallel_monitor_scheduler)
 
         # check_dq_task = None
         # check_mq_task = None
         # check_me_task = None
         # check_mb_task = None
 
-        deploy_endpoint_task = lambda_tasks.deploy_endpoint_fn_task(self)
-        batch_transform_task = sagemaker_tasks.get_batch_transform_task(self, f'{get_or_create_model_from_registry_task._result_path}.model_name')
+        deploy_endpoint_task = lambda_tasks.deploy_endpoint_fn_task(
+            self, 
+            model_name_lkp, 
+            self.model_package_group_name, 
+            self.model_package_version_lkp, 
+            self.endpoint_instance_type_lkp, 
+            self.data_capture_dir
+        )
+        endpoint_name_lkp = transform_out_dir_lkp = f'{deploy_endpoint_task._result_path}.endpoint_name'
+
+        batch_transform_task = sagemaker_tasks.get_batch_transform_task(self, model_name_lkp, self.batch_input_dir_lkp)
 
         # Parallel
 
 
         ### MONITOR_CHECK_MAP ###
-        check_monitor_map = stepfunctions.Pass(self, 'CheckMonitorMapDummy')
-        # check_monitor_map_end_pass = stepfunctions.Pass(self, 'MonitorCheckMapEnd')
-        # check_monitor_map = stepfunctions.Map(self, "CheckMonitorMap",
-        #     max_concurrency=1,
-        #     items_path=stepfunctions.JsonPath.string_at("$.monitors_to_check"),
-        #     item_selector={
-        #         "item": stepfunctions.JsonPath.string_at("$.Map.Item.Value")
-        #     },
-        #     result_path="$.checkMonitorMapOutput"
+        # end_parallel_monitor_checker = stepfunctions.Pass(self, 'EndParallelMonitorChecker')
+
+        # check_dq_task = lambda_tasks.check_dq_task_fn_task(self, 'dq-mon')
+        # conditional_check_dq_tasks = check_dq_mon_choice.when(check_dq_mon_cond, check_dq_task).otherwise(inference_chain)
+
+        # check_mq_task = lambda_tasks.check_mq_task_fn_task(self, 'mq-mon')
+        # conditional_check_mq_tasks = check_mq_mon_choice.when(check_mq_mon_cond, check_mq_task).otherwise(inference_chain)
+
+
+        # check_me_task = lambda_tasks.check_me_task_fn_task(self, 'me-mon')
+        # conditional_check_me_tasks = check_me_mon_choice.when(check_me_mon_cond, check_me_task).otherwise(inference_chain)
+
+
+        # check_mb_task = lambda_tasks.check_mb_task_fn_task(self, 'mb-mon')
+        # conditional_check_mb_tasks = check_mb_mon_choice.when(check_mb_mon_cond, check_mb_task).otherwise(inference_chain)
+
+        # parallel_monitor_checker = stepfunctions.Parallel(
+        #     self, 'ParallelMonitorChecker',
+        #     result_path=stepfunctions.JsonPath.DISCARD  # discard outputs if not needed
         # )
-        # check_map_chain = stepfunctions.choice(self, "CheckMonitorMapChoice") \
-        #     .when(stepfunctions.Condition.string_equals('$.item', 'CHECK_DQ'), \
-        #         check_dq_task \
-        #     ).when(stepfunctions.Condition.string_equals('$.item', 'CHECK_MQ'), \
-        #         check_mq_task \
-        #     ).when(stepfunctions.Condition.string_equals('$.item', 'CHECK_ME'), \
-        #         check_me_task \
-        #     ).when(stepfunctions.Condition.string_equals('$.item', 'CHECK_MB'), \
-        #         check_mb_task \
-        #     ).afterwards().next(schedule_monitor_map_end_pass)
-        # check_monitor_map.item_processor(check_map_chain)
+        # parallel_monitor_checker.branch(conditional_check_dq_tasks)
+        # parallel_monitor_checker.branch(conditional_check_mq_tasks)
+        # parallel_monitor_checker.branch(conditional_check_me_tasks)
+        # parallel_monitor_checker.branch(conditional_check_mb_tasks)
+        # parallel_monitor_checker.next(end_parallel_monitor_checker)
 
         # CHAINS
         ### baseline_chain ###
@@ -189,9 +232,9 @@ class SagemakerPipeTemplateStack(Stack):
             deploy_chain = parallel_monitor_scheduler
         ### inference_chain ###
         if(self.deploy_type == 'realtime'):
-            inference_chain = check_monitor_map
+            inference_chain = None # parallel_monitor_checker
         else:
-            inference_chain = batch_transform_task# .next(check_monitor_map)
+            inference_chain = batch_transform_task# .next(parallel_monitor_checker)
 
 
 
