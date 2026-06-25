@@ -1,7 +1,8 @@
 import os, pathlib, json
 from aws_cdk import (
     aws_logs as logs,
-    aws_stepfunctions as stepfunctions
+    aws_stepfunctions as stepfunctions,
+    Duration
 )
 from custom_constructs.CNetwork import CNetwork
 from custom_constructs.CLambda import CLambdaFunction
@@ -18,10 +19,9 @@ def sm_transform_fn_task(scope, construct_id, function_name, model_name_lkp, ins
         role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
         log_retention=logs.RetentionDays.ONE_MONTH,
-        runtime='python3.11'
+        runtime='python3.11',
+        timeout=Duration.minutes(15) # max 15 min
     )
-    # outputs=['TransformJobArn', 'JobName', 'OutputPath', 'Status']
-
     task = lambda_function.generate_task(
         payload={
             'model_name': stepfunctions.JsonPath.string_at(model_name_lkp),
@@ -29,7 +29,7 @@ def sm_transform_fn_task(scope, construct_id, function_name, model_name_lkp, ins
             'transform_out_dir': stepfunctions.JsonPath.string_at(transform_out_dir_lkp) if transform_out_dir_lkp else transform_out_dir,
             'instance_type': stepfunctions.JsonPath.string_at(instance_type_lkp)
         },
-        # result_selector={}
+        outputs=['TRANSFORM_JOB_ARM', 'JOB_NAME', 'OUTPUT_PATH', 'STATUS']
     )
     return [task, lambda_function]
 
@@ -43,21 +43,21 @@ def parse_instances_fn_task(scope, construct_id, function_name, monitor_instance
         role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
         log_retention=logs.RetentionDays.ONE_MONTH,
-        runtime='python3.11'
+        runtime='python3.11',
+        timeout=Duration.minutes(5)
     )
-    # outputs=['monitor_instance.class', 'monitor_instance.size', 'transform_instance.class', 'transform_instance.size', 'endpoint_instance.class', 'endpoint_instance.size']
-
     task = lambda_function.generate_task(
         payload={
             'monitor_instance': stepfunctions.JsonPath.string_at(monitor_instance_lkp),
             'transform_instance': stepfunctions.JsonPath.string_at(transform_instance_lkp),
             'endpoint_instance': stepfunctions.JsonPath.string_at(endpoint_instance_lkp)
         },
+        outputs=['MONITOR_INSTANCE.CLASS', 'MONITOR_INSTANCE.SIZE', 'TRANSFORM_INSTANCE.CLASS', 'TRANSFORM_INSTANCE.SIZE', 'ENDPOINT_INSTANCE.CLASS', 'ENDPOINT_INSTANCE.SIZE']
         # result_selector={}
     )
     return [task, lambda_function]
 
-def get_get_or_create_model_from_registry_fn_task(scope, construct_id, function_name, model_package_group_name, model_package_version_lkp):
+def get_get_or_create_model_from_registry_fn_task(scope, construct_id, function_name, model_package_group_name, model_package_version_lkp, create_model_role):
     stepfunctions.JsonPath.string_at(model_package_version_lkp)
 
     lambda_function = CLambdaFunction(
@@ -69,22 +69,24 @@ def get_get_or_create_model_from_registry_fn_task(scope, construct_id, function_
         role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
         log_retention=logs.RetentionDays.ONE_MONTH,
-        runtime='python3.11'
+        runtime='python3.11',
+        timeout=Duration.minutes(5)    
     )
-    # outputs=['model_name', 'model_package_arn']
-    
+
     task = lambda_function.generate_task(
         payload={
             'model_package_group_name': model_package_group_name,
-            'model_package_version': stepfunctions.JsonPath.string_at(model_package_version_lkp)
+            'model_package_version': stepfunctions.JsonPath.string_at(model_package_version_lkp),
+            'create_model_role':create_model_role.role_arn
         },
+        outputs=['MODEL_NAME', 'MODEL_PACKAGE_ARN']
         # result_selector={}
     )
 
     return [task, lambda_function]
 
 
-def prep_baseline_sets_fn_task(scope, construct_id, function_name, baseline_file_lkp, target_name, target_type, baseline_dir):
+def prep_baseline_sets_fn_task(scope, construct_id, function_name, baseline_file_lkp, target_name, target_type, baseline_dir, baseline_cols_lkp = [], layers=[]):
     lambda_function = CLambdaFunction(
         scope, construct_id,
         use_docker=False,
@@ -94,24 +96,27 @@ def prep_baseline_sets_fn_task(scope, construct_id, function_name, baseline_file
         role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
         log_retention=logs.RetentionDays.ONE_MONTH,
-        runtime='python3.11'
+        runtime='python3.11',
+        timeout=Duration.minutes(5),
+        layers=layers
     )
-    # outputs=['baseline_X_dir', 'baseline_X_file', 'baseline_X_filename']
 
     task = lambda_function.generate_task(
         payload={
             'baseline_file': stepfunctions.JsonPath.string_at(baseline_file_lkp),
             'target_name':target_name,
             'target_type': target_type,
-            'baseline_X_file_dest_dir':baseline_dir
+            'baseline_X_file_dest_dir':baseline_dir,
+            'columns':stepfunctions.JsonPath.list_at(baseline_cols_lkp)
         },
+        outputs=['BASELINE_X_DIR', 'BASELINE_X_FILE', 'BASELINE_X_FILENAME']
         # result_selector={}
     )
     
     return [task, lambda_function]
 
 
-def get_baseline_preds_fn_task(scope, construct_id, function_name, transform_out_dir_lkp, target_name, target_type):
+def get_baseline_preds_fn_task(scope, construct_id, function_name, transform_out_dir_lkp, baseline_X_filename_lkp, baseline_pred_file_dest, layers=[]):
     lambda_function = CLambdaFunction(
         scope, construct_id,
         use_docker=False,
@@ -121,24 +126,24 @@ def get_baseline_preds_fn_task(scope, construct_id, function_name, transform_out
         role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
         log_retention=logs.RetentionDays.ONE_MONTH,
-        runtime='python3.11'
+        runtime='python3.11',
+        timeout=Duration.minutes(5),
+        layers=layers
     )
-    # outputs=['baseline_pred_file']
 
     task = lambda_function.generate_task(
         payload={
             'transform_out_dir': stepfunctions.JsonPath.string_at(transform_out_dir_lkp),
-            'baseline_X_filename':target_name,
-            'baseline_pred_file_dest': target_type,
+            'baseline_X_filename':stepfunctions.JsonPath.string_at(baseline_X_filename_lkp),
+            'baseline_pred_file_dest': baseline_pred_file_dest
         },
+        outputs=['BASELINE_PRED_FILE']
         # result_selector={}
     )
     
     return [task, lambda_function]
 
-
-
-def make_baseline_sets_fn_task(scope, construct_id, function_name, baseline_file_lkp, baseline_pred_file_lkp, dq_monitor_dir, db_monitor_dir, mq_monitor_dir, mb_monitor_dir, me_monitor_dir, target_name, prediction_name, baseline_X_file_lkp, target_type):
+def make_baseline_sets_fn_task(scope, construct_id, function_name, baseline_file_lkp, baseline_pred_file_lkp, dq_monitor_dir, db_monitor_dir, mq_monitor_dir, mb_monitor_dir, me_monitor_dir, target_name, prediction_name, baseline_X_file_lkp, target_type, layers=[]):
     lambda_function = CLambdaFunction(
         scope, construct_id,
         use_docker=False,
@@ -148,9 +153,10 @@ def make_baseline_sets_fn_task(scope, construct_id, function_name, baseline_file
         role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
         log_retention=logs.RetentionDays.ONE_MONTH,
-        runtime='python3.11'
+        runtime='python3.11',
+        timeout=Duration.minutes(5),
+        layers=layers
     )
-    # outputs=[]
 
     task = lambda_function.generate_task(
         payload={
@@ -166,6 +172,7 @@ def make_baseline_sets_fn_task(scope, construct_id, function_name, baseline_file
             'baseline_X_file': stepfunctions.JsonPath.string_at(baseline_X_file_lkp),
             'target_type':target_type
         },
+        outputs=[]
         # result_selector={}
     )
 
@@ -200,9 +207,9 @@ def schedule_dq_task_fn_task(scope,
         role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
         log_retention=logs.RetentionDays.ONE_MONTH,
-        runtime='python3.11'
+        runtime='python3.11',
+        timeout=Duration.minutes(5)
     )
-    # outputs=[]
 
     task = lambda_function.generate_task(
         payload={
@@ -223,6 +230,7 @@ def schedule_dq_task_fn_task(scope,
             'data_analysis_end_time':stepfunctions.JsonPath.string_at(data_analysis_end_time_lkp)
 
         },
+        outputs=[]
         # result_selector={}
     )
     
@@ -259,9 +267,9 @@ def schedule_mb_task_fn_task(scope,
         role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
         log_retention=logs.RetentionDays.ONE_MONTH,
-        runtime='python3.11'
+        runtime='python3.11',
+        timeout=Duration.minutes(5)
     )
-    # outputs=[]
 
     task = lambda_function.generate_task(
         payload={
@@ -283,6 +291,7 @@ def schedule_mb_task_fn_task(scope,
             'data_analysis_end_time':stepfunctions.JsonPath.string_at(data_analysis_end_time_lkp)
 
         },
+        outputs=[]
         # result_selector={}
     )
     
@@ -318,9 +327,9 @@ def schedule_me_task_fn_task(scope,
         role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
         log_retention=logs.RetentionDays.ONE_MONTH,
-        runtime='python3.11'
+        runtime='python3.11',
+        timeout=Duration.minutes(5)
     )
-    # outputs=[]
 
     task = lambda_function.generate_task(
         payload={
@@ -341,6 +350,7 @@ def schedule_me_task_fn_task(scope,
             'data_analysis_end_time':stepfunctions.JsonPath.string_at(data_analysis_end_time_lkp)
 
         },
+        outputs=[]
         # result_selector={}
     )
     
@@ -378,9 +388,9 @@ def schedule_mq_task_fn_task(scope,
         role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
         log_retention=logs.RetentionDays.ONE_MONTH,
-        runtime='python3.11'
+        runtime='python3.11',
+        timeout=Duration.minutes(5)
     )
-    # outputs=[]
 
     task = lambda_function.generate_task(
         payload={
@@ -404,6 +414,7 @@ def schedule_mq_task_fn_task(scope,
             'data_analysis_end_time':stepfunctions.JsonPath.string_at(data_analysis_end_time_lkp)
 
         },
+        outputs=[]
         # result_selector={}
     )
     
@@ -420,9 +431,9 @@ def deploy_endpoint_fn_task(scope, construct_id, function_name, model_name_lkp, 
         role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
         log_retention=logs.RetentionDays.ONE_MONTH,
-        runtime='python3.11'
+        runtime='python3.11',
+        timeout=Duration.minutes(5)
     )
-    # outputs=[endpoint_name]
 
     task = lambda_function.generate_task(
         payload={
@@ -433,6 +444,7 @@ def deploy_endpoint_fn_task(scope, construct_id, function_name, model_name_lkp, 
             'data_capture_dir':data_capture_dir
 
         },
+        outputs=['ENDPOINT_NAME']
         # result_selector={}
     )
     
@@ -449,11 +461,13 @@ def check_dq_task_fn_task(scope, construct_id, function_name):
         role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
         log_retention=logs.RetentionDays.ONE_MONTH,
-        runtime='python3.11'
+        runtime='python3.11',
+        timeout=Duration.minutes(5)
     )
     task = lambda_function.generate_task(
         payload={
         },
+        outputs=[]
         # result_selector={}
     )
     return [task, lambda_function]
@@ -468,11 +482,13 @@ def check_mq_task_fn_task(scope, construct_id, function_name):
         role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
         log_retention=logs.RetentionDays.ONE_MONTH,
-        runtime='python3.11'
+        runtime='python3.11',
+        timeout=Duration.minutes(5)
     )
     task = lambda_function.generate_task(
         payload={
         },
+        outputs=[]
         # result_selector={}
     )
     return [task, lambda_function]
@@ -487,11 +503,13 @@ def check_me_task_fn_task(scope, construct_id, function_name):
         role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
         log_retention=logs.RetentionDays.ONE_MONTH,
-        runtime='python3.11'
+        runtime='python3.11',
+        timeout=Duration.minutes(5)
     )
     task = lambda_function.generate_task(
         payload={
         },
+        outputs=[]
         # result_selector={}
     )
     return [task, lambda_function]
@@ -506,11 +524,13 @@ def check_mb_task_fn_task(scope, construct_id, function_name):
         role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
         log_retention=logs.RetentionDays.ONE_MONTH,
-        runtime='python3.11'
+        runtime='python3.11',
+        timeout=Duration.minutes(5)
     )
     task = lambda_function.generate_task(
         payload={
         },
+        outputs=[]
         # result_selector={}
     )
     return [task, lambda_function]

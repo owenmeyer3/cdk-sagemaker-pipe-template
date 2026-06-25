@@ -24,7 +24,7 @@ def model_name_exists(sm_client, model_name):
     except sm_client.exceptions.ClientError:
         return False
 
-def get_or_create_model_object_from_registry(sm_client, model_package_name, role, model_package_version='latest'):
+def get_or_create_model_object_from_registry(sm_client, model_package_name, create_model_role, model_package_version='latest'):
 
     model_package_details = sm_client.list_model_packages(
         ModelPackageGroupName=model_package_name,
@@ -59,7 +59,7 @@ def get_or_create_model_object_from_registry(sm_client, model_package_name, role
     print("using new model")
     create_model_response = sm_client.create_model(
         ModelName = model_name,
-        ExecutionRoleArn = role,
+        ExecutionRoleArn = create_model_role,
         Containers = [{'ModelPackageName': model_package_arn}]
     )
 
@@ -70,7 +70,9 @@ def handler(event, context):
 
     model_package_group_name = event['model_package_group_name']
     model_package_version = event['model_package_version']
-    role = event['role']
+    create_model_role = event['create_model_role']
 
-    model_name, model_package_arn = get_or_create_model_object_from_registry(sm_client, model_package_group_name, role, model_package_version=model_package_version)
-    return {'model_name': model_name, 'model_package_arn': model_package_arn}
+    model_name, model_package_arn = get_or_create_model_object_from_registry(sm_client, model_package_group_name, create_model_role, model_package_version=model_package_version)
+    
+    print(f"Output Preview: {{'MODEL_NAME': model_name, 'MODEL_PACKAGE_ARN': model_package_arn}}")
+    return {'MODEL_NAME': model_name, 'MODEL_PACKAGE_ARN': model_package_arn}

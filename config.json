@@ -1,7 +1,7 @@
 {
 	"project": {
 		"NAME":"abalone",
-		"DEPLOY_TYPE":"batch",
+		"DEPLOY_TYPE":"realtime",
 		"TARGET_NAME":"rings",
 		"TARGET_TYPE":"float",
 		"PROBLEM_TYPE":"Regression",

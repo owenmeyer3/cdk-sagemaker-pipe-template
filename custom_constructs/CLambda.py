@@ -65,9 +65,13 @@ class CLambdaFunction(Construct):
     def generate_task(self, payload:dict={}, outputs=[], **kwargs) -> tasks.LambdaInvoke:
         task_timeout=kwargs.pop('task_timeout', stepfunctions.Timeout.duration(Duration.minutes(10)))
 
+        print(f"outputs: {outputs}")
+
         result_selection={}
         for o in outputs:
             result_selection[f'{o}.$'] = f'$.Payload.{o}'
+        
+        print(f"result_selection: {result_selection}")
 
         print(payload)
 

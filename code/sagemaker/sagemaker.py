@@ -79,10 +79,10 @@ def transform_job_handler(event, context):
 
         if status == 'Completed':
             return {
-                'TransformJobArn': response['TransformJobArn'],
-                'JobName': job_name,
-                'OutputPath': transform_out_dir,
-                'Status': status
+                'TRANSFORM_JOB_ARM': response['TransformJobArn'],
+                'JOB_NAME': job_name,
+                'OUTPUT_PATH': transform_out_dir,
+                'STATUS': status
             }
         elif status == 'Failed':
             raise Exception(f"Transform job failed: {response.get('FailureReason')}")

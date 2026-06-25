@@ -27,16 +27,16 @@ def instance_parse_handler(event, context):
     logger.info(f'endpoint_instance: {endpoint_instance} => {e_class} & {e_size}')
 
     return {
-        'monitor_instance': {
-            'class':m_class, 
-            'size':m_size
+        'MONITOR_INSTANCE': {
+            'CLASS':m_class, 
+            'SIZE':m_size
         },
-        'transform_instance': {
-            'class':t_class, 
-            'size':t_size
+        'TRANSFORM_INSTANCE': {
+            'CLASS':t_class, 
+            'SIZE':t_size
         },
-        'endpoint_instance': {
-            'class':e_class, 
-            'size':e_size
+        'ENDPOINT_INSTANCE': {
+            'CLASS':e_class, 
+            'SIZE':e_size
         },
     }

@@ -707,7 +707,7 @@ def data_quality_handler(event, context):
         endpoint_name=endpoint_name, 
         data_cature_dir=data_cature_dir
     )
-    return {'result': result}
+    return {}
 
 
 def model_bias_handler(event, context):
@@ -753,7 +753,7 @@ def model_bias_handler(event, context):
         endpoint_name=endpoint_name, 
         data_cature_dir=data_cature_dir
     )
-    return {'result': result}
+    return {}
 
 
 def model_explainability_handler(event, context):
@@ -797,7 +797,7 @@ def model_explainability_handler(event, context):
         endpoint_name=endpoint_name, 
         data_cature_dir=data_cature_dir
     )
-    return {'result': result}
+    return {}
 
 
 def model_quality_handler(event, context):
@@ -847,4 +847,4 @@ def model_quality_handler(event, context):
         endpoint_name=endpoint_name, 
         data_cature_dir=data_cature_dir
     )
-    return {'result': result}
+    return {}

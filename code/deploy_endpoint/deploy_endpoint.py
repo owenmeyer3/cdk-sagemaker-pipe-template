@@ -27,7 +27,7 @@ def handler(event, context):
     model_package_version = event['model_package_version']
     instance_type = event['instance_type']
     data_capture_dir = event['data_capture_dir'] # 's3://omm-test-bucket/data-capture/abalone'
-    endpoint_name=f'{model_package_group_name}-{model_package_version}-endpoint',
+    endpoint_name=f'{model_package_group_name}-{model_package_version}-endpoint'
     endpoint_config_name = endpoint_name + "-config"
 
     # Create or select endpoint
@@ -74,4 +74,4 @@ def handler(event, context):
     waiter = sm_client.get_waiter('endpoint_in_service')
     waiter.wait(EndpointName=endpoint_name)
     
-    return {'endpoint_name': endpoint_name}
+    return {'ENDPOINT_NAME': endpoint_name}

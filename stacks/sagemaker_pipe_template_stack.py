@@ -10,6 +10,7 @@ from aws_cdk import (
     aws_events as events,
     aws_events_targets as targets,
     aws_ecr_assets as ecr_assets,
+    aws_lambda as _lambda
 )
 from constructs import Construct
 from custom_constructs.CNetwork import CNetwork
@@ -40,15 +41,16 @@ class SagemakerPipeTemplateStack(Stack):
         self.lambda_execution_role_arn=iam.Role.from_role_arn(self, "ImportedLambdaExecutionRole", env_config['LAMBDA_EXECUTION_ROLE_ARN'], mutable=False)
         self.other_execution_role_arn=iam.Role.from_role_arn(self, "ImportedOtherExecutionRole", env_config['OTHER_EXECUTION_ROLE_ARN'], mutable=False)
         self.network = CNetwork(self, "ImportedNetwork", region=env_config['REGION_NAME'], vpc_config=env_config['VPC_CONFIG'])
+        self.pandas_layer_version=_lambda.LayerVersion.from_layer_version_arn(self, 'ExistingPandasLayer', 'arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python311:33')
         assert os.getenv('ACTION') not in ['deploy', 'inference'], 'ACTION must be in [deploy, inference]'
 
         print(f"ROLE: {self.state_machine_execution_role.role_arn}")
 
         # Derived Params
-        self.pipeline_dir =   f's3://{self.pipeline_bucket}/pipelines/{self.model_package_group_name}'
+        self.pipeline_dir =   f's3://{self.pipeline_bucket}/pipelines/{self.name}'
         self.baseline_dir =   f'{self.pipeline_dir}/baseline'
         self.monitors_dir=    f'{self.pipeline_dir}/monitors'
-        self.batch_out_dir=   f'{self.pipeline_dir}/batch_out'
+        self.batch_out_dir=   f'{self.pipeline_dir}/batch-out'
         self.data_capture_dir=f'{self.pipeline_dir}/capture'
         self.dq_monitor_dir=  f'{self.pipeline_dir}/data-quality'
         self.mq_monitor_dir=  f'{self.pipeline_dir}/model-quality'
@@ -60,6 +62,7 @@ class SagemakerPipeTemplateStack(Stack):
         self.model_package_version_lkp = '$.MODEL_PACKAGE_VERSION'# :1,
         self.action_type_lkp = '$.ACTION'# :'deploy',
         self.baseline_file_lkp = '$.BASELINE_FILE'# :'aaa',
+        self.baseline_cols_lkp = '$.BASELINE_COLS'
         self.monitor_instance_type_lkp = '$.MONITOR_INSTANCE_TYPE'# :'ml.m5.large',
         self.endpoint_instance_type_lkp = '$.ENDPOINT_INSTANCE_TYPE'# :'ml.m5.large',
         self.transform_instance_type_lkp = '$.TRANSFORM_INSTANCE_TYPE'# :'ml.m5.large',
@@ -81,7 +84,7 @@ class SagemakerPipeTemplateStack(Stack):
         self.ground_truth_dir_lkp = '$.GROUND_TRUTH_DIR'# :f's3://omm-test-bucket/ground-truth/abalone',
         self.batch_input_dir_lkp = '$.BATCH_INPUT_DIR'# :f's3://omm-test-bucket/ground-truth/abalone',
 
-        statemachine_start = stepfunctions.Pass(self, 'Start')
+        state_machine_start = stepfunctions.Pass(self, 'Start')
         sf_launch_schedule = events.Schedule.rate(Duration.hours(1))
         statemachine_end = stepfunctions.Pass(self, 'End')
 
@@ -108,24 +111,24 @@ class SagemakerPipeTemplateStack(Stack):
         check_mb_mon_cond =    stepfunctions.Condition.string_equals(self.enable_model_bias_check_lkp, "TRUE")
 
         # CREATE
-        get_or_create_model_from_registry_task, get_or_create_model_from_registry_function = lambda_tasks.get_get_or_create_model_from_registry_fn_task(self, 'GetOrCreateModel', f'{self.name}-get-or-create-model', self.model_package_group_name, self.model_package_version_lkp)
-        model_name_lkp = f'{get_or_create_model_from_registry_task._result_path}.model_name'
-        model_package_arn_lkp = f'{get_or_create_model_from_registry_task._result_path}.model_package_arn'
+        get_or_create_model_from_registry_task, get_or_create_model_from_registry_function = lambda_tasks.get_get_or_create_model_from_registry_fn_task(self, 'GetOrCreateModel', f'{self.name}-get-or-create-model', self.model_package_group_name, self.model_package_version_lkp, self.other_execution_role_arn)
+        model_name_lkp = f'{get_or_create_model_from_registry_task._result_path}.MODEL_NAME'
+        model_package_arn_lkp = f'{get_or_create_model_from_registry_task._result_path}.MODEL_PACKAGE_ARN'
 
         # BASELINE
-        prep_baseline_sets_task, prep_baseline_sets_function = lambda_tasks.prep_baseline_sets_fn_task(self, 'PrepBaselineSets', f'{self.name}-prep-baseline-sets', self.baseline_file_lkp, self.target_name, self.target_type, self.baseline_dir)
-        baseline_X_dir_lkp = f'{prep_baseline_sets_task._result_path}.baseline_X_dir'
-        baseline_X_file_lkp = f'{prep_baseline_sets_task._result_path}.baseline_X_file'
-        baseline_X_filename_lkp = f'{prep_baseline_sets_task._result_path}.baseline_X_filename'
+        prep_baseline_sets_task, prep_baseline_sets_function = lambda_tasks.prep_baseline_sets_fn_task(self, 'PrepBaselineSets', f'{self.name}-prep-baseline-sets', self.baseline_file_lkp, self.target_name, self.target_type, self.baseline_dir, baseline_cols_lkp=self.baseline_cols_lkp, layers=[self.pandas_layer_version])
+        baseline_X_dir_lkp = f'{prep_baseline_sets_task._result_path}.BASELINE_X_DIR'
+        baseline_X_file_lkp = f'{prep_baseline_sets_task._result_path}.BASELINE_X_FILE'
+        baseline_X_filename_lkp = f'{prep_baseline_sets_task._result_path}.BASELINE_X_FILENAME'
 
-        baseline_transform_task, baseline_transform_function = lambda_tasks.sm_transform_fn_task(self, 'BaselineTransform', f'{self.name}-baseline-transform', model_name_lkp, self.transform_instance_type_lkp, s3_data_source_lkp=self.baseline_file_lkp, transform_out_dir=self.baseline_dir)
-        baseline_transform_job_arn_lkp = f'{baseline_transform_task._result_path}.TransformJobArn'
-        baseline_transform_job_name_lkp = f'{baseline_transform_task._result_path}.JobName'
-        baseline_transform_out_dir_lkp = f'{baseline_transform_task._result_path}.OutputPath' # "s3://bucket/output/"
-        baseline_transform_status_lkp = f'{baseline_transform_task._result_path}.Status'
+        baseline_transform_task, baseline_transform_function = lambda_tasks.sm_transform_fn_task(self, 'BaselineTransform', f'{self.name}-baseline-transform', model_name_lkp, self.transform_instance_type_lkp, s3_data_source_lkp=baseline_X_file_lkp, transform_out_dir=self.baseline_dir)
+        baseline_transform_job_arn_lkp = f'{baseline_transform_task._result_path}.TRANSFORM_JOB_ARN'
+        baseline_transform_job_name_lkp = f'{baseline_transform_task._result_path}.JOB_NAME'
+        baseline_transform_out_dir_lkp = f'{baseline_transform_task._result_path}.OUTPUT_PATH' # "s3://bucket/output/"
+        baseline_transform_status_lkp = f'{baseline_transform_task._result_path}.STATUS'
         
-        get_baseline_preds_task, get_baseline_preds_function = lambda_tasks.get_baseline_preds_fn_task(self, 'GetBaselinePreds', f'{self.name}-get-baseline-preds', baseline_transform_out_dir_lkp, self.target_name, self.target_type)
-        baseline_pred_file_lkp = f'{get_baseline_preds_task._result_path}.baseline_pred_file'
+        get_baseline_preds_task, get_baseline_preds_function = lambda_tasks.get_baseline_preds_fn_task(self, 'GetBaselinePreds', f'{self.name}-get-baseline-preds', baseline_transform_out_dir_lkp, baseline_X_filename_lkp, self.baseline_dir, layers=[self.pandas_layer_version])
+        baseline_pred_file_lkp = f'{get_baseline_preds_task._result_path}.BASELINE_PRED_FILE'
 
         make_baseline_task, make_baseline_function = lambda_tasks.make_baseline_sets_fn_task(
             self, 
@@ -140,7 +143,8 @@ class SagemakerPipeTemplateStack(Stack):
             self.target_name, 
             self.prediction_name, 
             baseline_X_file_lkp, 
-            self.target_type
+            self.target_type, 
+            layers=[self.pandas_layer_version]
         )
 
         # RT DEPLOY
@@ -153,7 +157,7 @@ class SagemakerPipeTemplateStack(Stack):
             self.endpoint_instance_type_lkp, 
             self.data_capture_dir
         )
-        endpoint_name_lkp = f'{deploy_endpoint_task._result_path}.endpoint_name'
+        endpoint_name_lkp = f'{deploy_endpoint_task._result_path}.ENDPOINT_NAME'
         
         # MONITOR SCHEDULES
         schedule_dq_task, schedule_dq_function = lambda_tasks.schedule_dq_task_fn_task(
@@ -228,10 +232,11 @@ class SagemakerPipeTemplateStack(Stack):
 
         # INF TRANSFORM
         batch_transform_task, batch_transform_function = lambda_tasks.sm_transform_fn_task(self, 'BatchTransform', f'{self.name}-batch-transform', model_name_lkp, self.transform_instance_type_lkp, s3_data_source_lkp=self.batch_input_dir_lkp, transform_out_dir=self.batch_out_dir)
-        batch_transform_job_arn_lkp = f'{baseline_transform_task._result_path}.TransformJobArn'
-        batch_transform_job_name_lkp = f'{baseline_transform_task._result_path}.JobName'
-        batch_transform_out_dir_lkp = f'{baseline_transform_task._result_path}.OutputPath' # "s3://bucket/output/"
-        batch_transform_status_lkp = f'{baseline_transform_task._result_path}.Status'
+        batch_transform_job_arn_lkp = f'{baseline_transform_task._result_path}.TRANSFORM_JOB_ARN'
+        batch_transform_job_name_lkp = f'{baseline_transform_task._result_path}.JOB_NAME'
+        batch_transform_out_dir_lkp = f'{baseline_transform_task._result_path}.OUTPUT_PATH' # "s3://bucket/output/"
+        batch_transform_status_lkp = f'{baseline_transform_task._result_path}.STATUS'
+        
 
         check_dq_task, check_dq_function = lambda_tasks.check_dq_task_fn_task(self, 'CheckDQ', f'{self.name}-check-dq')
         conditional_check_dq_tasks = check_dq_mon_choice.when(check_dq_mon_cond, check_dq_task).afterwards()
@@ -265,7 +270,7 @@ class SagemakerPipeTemplateStack(Stack):
             inference_chain = pre_transform_parallel_monitor_checker.next(batch_transform_task).next(post_transform_parallel_monitor_checker)
 
         # FULL CHAIN
-        chain=statemachine_start.next(get_or_create_model_from_registry_task) \
+        chain=state_machine_start.next(get_or_create_model_from_registry_task) \
             .next( \
                 rebaseline_choice.when(rebaseline_cond, baseline_chain).otherwise(action_choice).afterwards() \
             ).next( \
@@ -318,7 +323,7 @@ class SagemakerPipeTemplateStack(Stack):
                 targets.SfnStateMachine(
                     state_machine,
                     role=self.rule_execution_role,
-                    input=events.RuleTargetInput.from_object({"event":events.EventField.from_path("$")})
+                    input=events.RuleTargetInput.from_object(events.EventField.from_path("$"))
                 )
             ]
         )
