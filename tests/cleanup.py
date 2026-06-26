@@ -6,7 +6,7 @@ name='abalone'
 model_package_group_name='abalone'
 model_package_version = 1
 #endpoint_name=f'{model_package_group_name}-{model_package_version}-endpoint'
-endpoint_name='abalone-endpoint'
+endpoint_name=f'{model_package_group_name}-{model_package_version}-endpoint'
 endpoint_config_name = endpoint_name + "-config"
 s3_resource=boto3.resource('s3')
 boto_session=boto3.Session(region_name=region)
@@ -15,7 +15,7 @@ sm_client = boto_session.client('sagemaker', region_name=region)
 pipeline_dir =   f's3://{data_bucket}/pipelines/{name}'
 baseline_dir =   f'{pipeline_dir}/baseline'
 monitors_dir=    f'{pipeline_dir}/monitors'
-batch_out_dir=   f'{pipeline_dir}/batch_out'
+batch_out_dir=   f'{pipeline_dir}/batch-out'
 data_capture_dir=f'{pipeline_dir}/capture'
 dq_monitor_dir=  f'{pipeline_dir}/data-quality'
 mq_monitor_dir=  f'{pipeline_dir}/model-quality'

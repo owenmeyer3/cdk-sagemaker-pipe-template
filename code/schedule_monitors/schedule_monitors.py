@@ -38,7 +38,7 @@ def delete_monitor(sm_client, endpoint_name, monitoring_type): # 'DataQuality':|
         detail = sm_client.describe_monitoring_schedule(MonitoringScheduleName=name)
         logger.info(detail['MonitoringType'])
         if detail['MonitoringType'] == monitoring_type:
-            logger.info(f'deleting {detail['MonitoringType']} monitor: {name}')
+            logger.info(f"deleting {detail['MonitoringType']} monitor: {name}")
             response = sm_client.delete_monitoring_schedule(MonitoringScheduleName=name)
 
 
@@ -691,7 +691,7 @@ def data_quality_handler(event, context):
 
     result = create_data_quality_monitoring_schedule(
         sm_client, 
-        name,
+        f'{endpoint_name}-{name}',
         role_arn,
         deploy_type,
         monitor_dir,
@@ -736,7 +736,7 @@ def model_bias_handler(event, context):
 
     result = create_model_bias_monitoring_schedule(
         sm_client, 
-        name,
+        f'{endpoint_name}-{name}',
         role_arn,
         deploy_type,
         monitor_dir,
@@ -781,7 +781,7 @@ def model_explainability_handler(event, context):
 
     result = create_model_explainability_monitoring_schedule(
         sm_client, 
-        name,
+        f'{endpoint_name}-{name}',
         role_arn,
         deploy_type,
         monitor_dir,
@@ -828,7 +828,7 @@ def model_quality_handler(event, context):
 
     result = create_model_quality_monitoring_schedule(
         sm_client, 
-        name,
+        f'{endpoint_name}-{name}',
         role_arn,
         deploy_type,
         problem_type,

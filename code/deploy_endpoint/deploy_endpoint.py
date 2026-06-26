@@ -18,7 +18,6 @@ def endpoint_config_exists(sm_client, config_name):
     except sm_client.exceptions.ClientError:
         return False
 
-
 def handler(event, context):
     sm_client = boto3.client('sagemaker')
     
@@ -30,45 +29,46 @@ def handler(event, context):
     endpoint_name=f'{model_package_group_name}-{model_package_version}-endpoint'
     endpoint_config_name = endpoint_name + "-config"
 
-    # Create or select endpoint
-    if not endpoint_config_exists(sm_client, endpoint_config_name):
-        print("creating endpoint config")
-        response = sm_client.create_endpoint_config(
-            EndpointConfigName=endpoint_config_name,
-            ProductionVariants=[
-                {
-                    'VariantName': 'AllTraffic',
-                    'ModelName': model_name,
-                    'InstanceType': instance_type,
-                    'InitialInstanceCount': 1,
-                    'InitialVariantWeight': 1.0
-                }
-            ],
-            DataCaptureConfig={
-                'EnableCapture': True,
-                'InitialSamplingPercentage': 100,
-                'DestinationS3Uri': data_capture_dir,
-                'CaptureOptions': [
-                    {'CaptureMode': 'Input'},
-                    {'CaptureMode': 'Output'}
-                ]
-            }
-        )
-        while not endpoint_config_exists(sm_client, endpoint_config_name):
-            time.sleep(5)
-        print(response['EndpointConfigArn'])
-    else:
-        print(f"using existing endpoint config {endpoint_config_name}")
-
-    # Create or update endpoint
     if endpoint_exists(sm_client, endpoint_name):
-        print("updating endpoint")
-        response = sm_client.update_endpoint(EndpointName=endpoint_name, EndpointConfigName=endpoint_config_name)
-        print(response)
-    else:
-        print("creating endpoint")
-        response = sm_client.create_endpoint(EndpointName=endpoint_name, EndpointConfigName=endpoint_config_name)
-        print(response)
+        sm_client.delete_endpoint(EndpointName=endpoint_name)
+        waiter = sm_client.get_waiter('endpoint_deleted')
+        waiter.wait(EndpointName=endpoint_name)
+
+    if endpoint_config_exists(sm_client, endpoint_config_name):
+        sm_client.delete_endpoint_config(EndpointConfigName=endpoint_config_name)
+
+    # Create or select endpoint
+    print("creating endpoint config")
+    response = sm_client.create_endpoint_config(
+        EndpointConfigName=endpoint_config_name,
+        ProductionVariants=[
+            {
+                'VariantName': 'AllTraffic',
+                'ModelName': model_name,
+                'InstanceType': instance_type,
+                'InitialInstanceCount': 1,
+                'InitialVariantWeight': 1.0
+            }
+        ],
+        DataCaptureConfig={
+            'EnableCapture': True,
+            'InitialSamplingPercentage': 100,
+            'DestinationS3Uri': data_capture_dir,
+            'CaptureOptions': [
+                {'CaptureMode': 'Input'},
+                {'CaptureMode': 'Output'}
+            ]
+        }
+    )
+    while not endpoint_config_exists(sm_client, endpoint_config_name):
+        time.sleep(5)
+    print(response['EndpointConfigArn'])
+
+    # Create endpoint
+    print("creating endpoint")
+    # response = sm_client.update_endpoint(EndpointName=endpoint_name, EndpointConfigName=endpoint_config_name)
+    response = sm_client.create_endpoint(EndpointName=endpoint_name, EndpointConfigName=endpoint_config_name)
+    print(response)
 
     # Wait for endpoint to be InService
     waiter = sm_client.get_waiter('endpoint_in_service')

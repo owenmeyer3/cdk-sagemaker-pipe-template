@@ -106,17 +106,17 @@ def prep_baseline_sets_fn_task(scope, construct_id, function_name, baseline_file
             'baseline_file': stepfunctions.JsonPath.string_at(baseline_file_lkp),
             'target_name':target_name,
             'target_type': target_type,
-            'baseline_X_file_dest_dir':baseline_dir,
+            'baseline_dir':baseline_dir,
             'columns':stepfunctions.JsonPath.list_at(baseline_cols_lkp)
         },
-        outputs=['BASELINE_X_DIR', 'BASELINE_X_FILE', 'BASELINE_X_FILENAME']
+        outputs=['BASELINE_HEADERED_FILE', 'BASELINE_X_FILE', 'BASELINE_X_FILENAME']
         # result_selector={}
     )
     
     return [task, lambda_function]
 
 
-def get_baseline_preds_fn_task(scope, construct_id, function_name, transform_out_dir_lkp, baseline_X_filename_lkp, baseline_pred_file_dest, layers=[]):
+def get_baseline_preds_fn_task(scope, construct_id, function_name, transform_out_dir_lkp, baseline_X_filename_lkp, baseline_dir, layers=[]):
     lambda_function = CLambdaFunction(
         scope, construct_id,
         use_docker=False,
@@ -135,7 +135,7 @@ def get_baseline_preds_fn_task(scope, construct_id, function_name, transform_out
         payload={
             'transform_out_dir': stepfunctions.JsonPath.string_at(transform_out_dir_lkp),
             'baseline_X_filename':stepfunctions.JsonPath.string_at(baseline_X_filename_lkp),
-            'baseline_pred_file_dest': baseline_pred_file_dest
+            'baseline_dir': baseline_dir
         },
         outputs=['BASELINE_PRED_FILE']
         # result_selector={}
@@ -143,7 +143,7 @@ def get_baseline_preds_fn_task(scope, construct_id, function_name, transform_out
     
     return [task, lambda_function]
 
-def make_baseline_sets_fn_task(scope, construct_id, function_name, baseline_file_lkp, baseline_pred_file_lkp, dq_monitor_dir, db_monitor_dir, mq_monitor_dir, mb_monitor_dir, me_monitor_dir, target_name, prediction_name, baseline_X_file_lkp, target_type, layers=[]):
+def make_baseline_sets_fn_task(scope, construct_id, function_name, baseline_headered_file_lkp, baseline_pred_file_lkp, dq_monitor_dir, db_monitor_dir, mq_monitor_dir, mb_monitor_dir, me_monitor_dir, target_name, prediction_name, baseline_X_file_lkp, target_type, layers=[]):
     lambda_function = CLambdaFunction(
         scope, construct_id,
         use_docker=False,
@@ -160,7 +160,7 @@ def make_baseline_sets_fn_task(scope, construct_id, function_name, baseline_file
 
     task = lambda_function.generate_task(
         payload={
-            'baseline_file': stepfunctions.JsonPath.string_at(baseline_file_lkp),
+            'baseline_headered_file': stepfunctions.JsonPath.string_at(baseline_headered_file_lkp),
             'baseline_pred_file':stepfunctions.JsonPath.string_at(baseline_pred_file_lkp),
             'dq_monitor_dir': dq_monitor_dir,
             'db_monitor_dir': db_monitor_dir,

@@ -39,7 +39,7 @@ def df_to_s3(df, s3_uri, index=False, header=True):
     s3.put_object(Bucket=bucket, Key=key, Body=csv_buffer.getvalue())
 
 def make_baseline_sets(
-    baseline_file,
+    baseline_headered_file,
     baseline_pred_file,
     dq_monitor_dir,
     db_monitor_dir,
@@ -48,14 +48,14 @@ def make_baseline_sets(
     me_monitor_dir,
     target_name,
     prediction_name,
-    baseline_X_file,
     target_type='float'
 ):
-
-    baseline=df_from_s3(baseline_file, header=0)
+    print(f'baseline_headered_file:{baseline_headered_file}')
+    print(f'baseline_pred_file:{baseline_pred_file}')
+    baseline_headered=df_from_s3(baseline_headered_file, header=0)
     baseline_pred=df_from_s3(baseline_pred_file, header=None)
     baseline_pred.columns=[prediction_name]
-    baseline_full = pd.concat([baseline_pred, baseline], axis=1)
+    baseline_full = pd.concat([baseline_pred, baseline_headered], axis=1)
     baseline_full[target_name] = baseline_full[target_name].astype(string_to_type(target_type))
     baseline_full[prediction_name] = baseline_full[prediction_name].astype(string_to_type(target_type))
 
@@ -100,12 +100,12 @@ def make_baseline_sets(
     )
 
     # baseline_X_file for SHAP
-    df_to_s3(
-        baseline_full.drop(columns=[target_name, prediction_name]),
-        baseline_X_file, 
-        index=False, 
-        header=False
-    )
+    # df_to_s3(
+    #     baseline_full.drop(columns=[target_name, prediction_name]),
+    #     baseline_X_file, 
+    #     index=False, 
+    #     header=False
+    # )
 
     return None
 
@@ -114,18 +114,22 @@ def prep_baseline_sets_handler(event, context):
     baseline_file = event['baseline_file']
     target_name = event['target_name']
     target_type = event['target_type']
-    baseline_X_file_dest_dir = event['baseline_X_file_dest_dir']
+    baseline_dir = event['baseline_dir']
     columns=event['columns'] if 'columns' in event else None
         
     # get baseline X
-    baseline=df_from_s3(baseline_file, header=None, names=columns) # baseline file == validation file
-    baseline[target_name] = baseline[target_name].astype(string_to_type(target_type))
-    baseline_X = baseline.drop(columns=[target_name])
-    baseline_X_file=f'{baseline_X_file_dest_dir}/baseline_X.csv'
+    headered_baseline=df_from_s3(baseline_file, header=None, names=columns) # baseline file == validation file
+    headered_baseline[target_name] = headered_baseline[target_name].astype(string_to_type(target_type))
+    baseline_headered_file=f'{baseline_dir}/baseline_headered.csv'
+    df_to_s3(headered_baseline, baseline_headered_file, index=False, header=True)
+
+    # make baseline X
+    baseline_X = headered_baseline.drop(columns=[target_name])
+    baseline_X_file=f'{baseline_dir}/baseline_X.csv'
     df_to_s3(baseline_X, baseline_X_file, index=False, header=False)
 
     return {
-        'BASELINE_X_DIR': baseline_X_file_dest_dir,
+        'BASELINE_HEADERED_FILE': baseline_headered_file,
         'BASELINE_X_FILE':baseline_X_file,
         'BASELINE_X_FILENAME': 'baseline_X.csv'
     }
@@ -134,24 +138,27 @@ def prep_baseline_sets_handler(event, context):
 def get_baseline_preds_handler(event, context):
     transform_out_dir = event['transform_out_dir']
     baseline_X_filename = event['baseline_X_filename']
-    baseline_pred_file_dest = event['baseline_pred_file_dest']
+    baseline_dir = event['baseline_dir']
 
     transformer_out_file = f'{transform_out_dir}/{baseline_X_filename}.out'
+    baseline_pred_file = f'{baseline_dir}/baseline_preds.csv'
+    print(f'transformer_out_file {transformer_out_file}')
+    print(f'baseline_pred_file {baseline_pred_file}')
 
     # move file to dest
     s3_client = boto3.client('s3')
     uri_1_bucket, uri_1_key = parse_s3_uri(transformer_out_file)
-    uri_2_bucket, uri_2_key = parse_s3_uri(baseline_pred_file_dest)
+    uri_2_bucket, uri_2_key = parse_s3_uri(baseline_pred_file)
     s3_client.copy_object(CopySource={'Bucket': uri_1_bucket, 'Key': uri_1_key}, Bucket=uri_2_bucket, Key=uri_2_key)
     s3_client.delete_object(Bucket=uri_1_bucket, Key=uri_1_key)
 
     return {
-        'BASELINE_PRED_FILE': baseline_pred_file_dest
+        'BASELINE_PRED_FILE': baseline_pred_file
     }
 
 
 def make_baseline_sets_handler(event, context):
-    baseline_file = event['baseline_file']
+    baseline_headered_file = event['baseline_headered_file']
     baseline_pred_file = event['baseline_pred_file']
     dq_monitor_dir = event['dq_monitor_dir']
     db_monitor_dir = event['db_monitor_dir']
@@ -163,8 +170,20 @@ def make_baseline_sets_handler(event, context):
     baseline_X_file = event['baseline_X_file']
     target_type = event['target_type'] if 'target_type' in event else 'float'
 
+    print(f'baseline_headered_file: {baseline_headered_file}')
+    print(f'baseline_pred_file: {baseline_pred_file}')
+    print(f'dq_monitor_dir: {dq_monitor_dir}')
+    print(f'db_monitor_dir: {db_monitor_dir}')
+    print(f'mq_monitor_dir: {mq_monitor_dir}')
+    print(f'mb_monitor_dir: {mb_monitor_dir}')
+    print(f'me_monitor_dir: {me_monitor_dir}')
+    print(f'target_name: {target_name}')
+    print(f'prediction_name: {prediction_name}')
+    print(f'baseline_X_file: {baseline_X_file}')
+    print(f'target_type: {target_type}')
+
     result = make_baseline_sets(
-        baseline_file,
+        baseline_headered_file,
         baseline_pred_file,
         dq_monitor_dir,
         db_monitor_dir,
@@ -173,7 +192,6 @@ def make_baseline_sets_handler(event, context):
         me_monitor_dir,
         target_name,
         prediction_name,
-        baseline_X_file,
         target_type=target_type
     )
     

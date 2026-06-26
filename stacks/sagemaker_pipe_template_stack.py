@@ -117,7 +117,7 @@ class SagemakerPipeTemplateStack(Stack):
 
         # BASELINE
         prep_baseline_sets_task, prep_baseline_sets_function = lambda_tasks.prep_baseline_sets_fn_task(self, 'PrepBaselineSets', f'{self.name}-prep-baseline-sets', self.baseline_file_lkp, self.target_name, self.target_type, self.baseline_dir, baseline_cols_lkp=self.baseline_cols_lkp, layers=[self.pandas_layer_version])
-        baseline_X_dir_lkp = f'{prep_baseline_sets_task._result_path}.BASELINE_X_DIR'
+        baseline_headered_file_lkp = f'{prep_baseline_sets_task._result_path}.BASELINE_HEADERED_FILE'
         baseline_X_file_lkp = f'{prep_baseline_sets_task._result_path}.BASELINE_X_FILE'
         baseline_X_filename_lkp = f'{prep_baseline_sets_task._result_path}.BASELINE_X_FILENAME'
 
@@ -133,7 +133,7 @@ class SagemakerPipeTemplateStack(Stack):
         make_baseline_task, make_baseline_function = lambda_tasks.make_baseline_sets_fn_task(
             self, 
             'MakeBaselineSets', f'{self.name}-make-baseline-sets',
-            self.baseline_file_lkp, 
+            baseline_headered_file_lkp, 
             baseline_pred_file_lkp, 
             self.dq_monitor_dir, 
             self.db_monitor_dir, 
