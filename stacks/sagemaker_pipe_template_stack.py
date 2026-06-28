@@ -183,7 +183,7 @@ class SagemakerPipeTemplateStack(Stack):
             self.other_execution_role_arn,
             self.deploy_type,
             self.problem_type,
-            self.ground_truth_label,
+            self.prediction_name,
             self.ground_truth_dir_lkp,
             self.mq_monitor_dir,
             self.monitor_instance_type_lkp,

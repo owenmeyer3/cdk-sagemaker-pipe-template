@@ -5,7 +5,6 @@ data_bucket='omm-test-bucket'
 name='abalone'
 model_package_group_name='abalone'
 model_package_version = 1
-#endpoint_name=f'{model_package_group_name}-{model_package_version}-endpoint'
 endpoint_name=f'{model_package_group_name}-{model_package_version}-endpoint'
 endpoint_config_name = endpoint_name + "-config"
 s3_resource=boto3.resource('s3')

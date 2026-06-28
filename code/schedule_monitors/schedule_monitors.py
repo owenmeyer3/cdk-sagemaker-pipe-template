@@ -3,6 +3,42 @@ import boto3, logging, json
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+def get_job_input(deploy_type, **kwargs):
+    job_input = {}
+    if deploy_type == 'realtime':
+        endpoint_input = {}
+        if kwargs.get('endpoint_name'): endpoint_input['EndpointName'] = kwargs['endpoint_name']
+        if kwargs.get('rt_local_path'): endpoint_input['LocalPath'] = kwargs['rt_local_path'] # '/opt/ml/processing/input/endpoint'
+        if kwargs.get('s3_input_mode'): endpoint_input['S3InputMode'] = kwargs['s3_input_mode'] # 'Pipe'|'File',
+        if kwargs.get('s3_data_distribution_type'): endpoint_input['S3DataDistributionType'] = kwargs['s3_data_distribution_type'] # 'FullyReplicated'|'ShardedByS3Key'
+        if kwargs.get('features_attribute'): endpoint_input['FeaturesAttribute'] = kwargs['features_attribute'] # 'string'
+        if kwargs.get('inference_attribute'): endpoint_input['InferenceAttribute'] = kwargs['inference_attribute'] # 'string'
+        if kwargs.get('probability_attribute'): endpoint_input['ProbabilityAttribute'] = kwargs['probability_attribute'] # 'string'
+        if kwargs.get('probability_threshold_attribute'): endpoint_input['ProbabilityThresholdAttribute'] = kwargs['probability_threshold_attribute'] # 'int'
+        if kwargs.get('start_time_offset'): endpoint_input['StartTimeOffset'] = kwargs['start_time_offset'] # 'string'
+        if kwargs.get('end_time_offset'): endpoint_input['EndTimeOffset'] = kwargs['end_time_offset'] # 'string'
+        if kwargs.get('exclude_features_attribute'): endpoint_input['ExcludeFeaturesAttribute'] = kwargs['exclude_features_attribute'] # 'string'
+        job_input={'EndpointInput': endpoint_input}
+    else:
+        transform_input = {}
+        if kwargs.get('data_capture_dir'): transform_input['DataCapturedDestinationS3Uri'] = f"{kwargs['data_capture_dir']}/" # '{data_capture_dir}/',
+        if kwargs.get('dataset_format'): transform_input['DatasetFormat'] = kwargs['dataset_format'] # {'Csv':{'Header': True|False},'Json': {'Line': True|False}, Parquet': {}}
+        if kwargs.get('bch_local_path'): transform_input['LocalPath'] = kwargs['bch_local_path'] # '/opt/ml/processing/input'
+        if kwargs.get('s3_input_mode'): transform_input['S3InputMode'] = kwargs['s3_input_mode'] # 'Pipe'|'File',
+        if kwargs.get('s3_data_distribution_type'): transform_input['S3DataDistributionType'] = kwargs['s3_data_distribution_type'] # 'FullyReplicated'|'ShardedByS3Key'
+        if kwargs.get('features_attribute'): transform_input['FeaturesAttribute'] = kwargs['features_attribute'] # 'string'
+        if kwargs.get('inference_attribute'): transform_input['InferenceAttribute'] = kwargs['inference_attribute'] # 'string'
+        if kwargs.get('probability_attribute'): transform_input['ProbabilityAttribute'] = kwargs['probability_attribute'] # 'string'
+        if kwargs.get('probability_threshold_attribute'): transform_input['ProbabilityThresholdAttribute'] = kwargs['probability_threshold_attribute'] # 'int'
+        if kwargs.get('start_time_offset'): transform_input['StartTimeOffset'] = kwargs['start_time_offset'] # 'string'
+        if kwargs.get('end_time_offset'): transform_input['EndTimeOffset'] = kwargs['end_time_offset'] # 'string'
+        if kwargs.get('exclude_features_attribute'): transform_input['ExcludeFeaturesAttribute'] = kwargs['exclude_features_attribute'] # 'string'
+        job_input={'BatchTransformInput': transform_input}
+    
+    if kwargs.get('ground_truth_dir'): job_input['GroundTruthS3Input'] = {'S3Uri': kwargs['ground_truth_dir']}
+    
+    return job_input
+
 ##############################################
 ############### DELETE MONITORS JOBS ##############
 ##############################################
@@ -59,41 +95,17 @@ def create_data_quality_job_definition(
     max_runtime_in_seconds=1800,  
     dataset_format={'Csv': {'Header': True}}, # {'Csv':{'Header': True|False},'Json': {'Line': True|False}, Parquet': {}}
     endpoint_name=None, 
-    data_cature_dir=None
+    data_capture_dir=None
     ):
-    if deploy_type == 'realtime':
-        job_input={
-            'EndpointInput': {
-                'EndpointName': endpoint_name,
-                'LocalPath': '/opt/ml/processing/input/endpoint'#,
-                # 'S3InputMode': 'Pipe'|'File',
-                # 'S3DataDistributionType': 'FullyReplicated'|'ShardedByS3Key',
-                # 'FeaturesAttribute': 'string',
-                # 'InferenceAttribute': 'string',
-                # 'ProbabilityAttribute': 'string',
-                # 'ProbabilityThresholdAttribute': 123.0,
-                # 'StartTimeOffset': 'string',
-                # 'EndTimeOffset': 'string',
-                # 'ExcludeFeaturesAttribute': 'string'
-            }
-        }
-    else:
-        job_input={
-            'BatchTransformInput': {
-                'DataCapturedDestinationS3Uri': f'{data_cature_dir}/',
-                'DatasetFormat': dataset_format,
-                'LocalPath': '/opt/ml/processing/input'#,
-                # 'S3InputMode': 'Pipe'|'File',
-                # 'S3DataDistributionType': 'FullyReplicated'|'ShardedByS3Key',
-                # 'FeaturesAttribute': 'string',
-                # 'InferenceAttribute': 'string',
-                # 'ProbabilityAttribute': 'string',
-                # 'ProbabilityThresholdAttribute': 123.0,
-                # 'StartTimeOffset': 'string',
-                # 'EndTimeOffset': 'string',
-                # 'ExcludeFeaturesAttribute': 'string'
-            }
-        }
+
+    job_input=get_job_input(
+        deploy_type, 
+        endpoint_name=endpoint_name,
+        rt_local_path='/opt/ml/processing/input/endpoint',
+        bch_local_path='/opt/ml/processing/input',
+        dataset_format=dataset_format,
+        data_capture_dir=data_capture_dir
+    )
 
     response = sm_client.create_data_quality_job_definition(
         JobDefinitionName=name,
@@ -160,42 +172,18 @@ def create_model_bias_job_definition(
     max_runtime_in_seconds=1800,  
     dataset_format={'Csv': {'Header': True}}, # {'Csv':{'Header': True|False},'Json': {'Line': True|False}, Parquet': {}}
     endpoint_name=None, 
-    data_cature_dir=None
+    data_capture_dir=None
     ):
-    if deploy_type == 'realtime':
-        job_input={
-            'EndpointInput': {
-                'EndpointName': endpoint_name,
-                'LocalPath': '/opt/ml/processing/input/endpoint'#,
-                # 'S3InputMode': 'Pipe'|'File',
-                # 'S3DataDistributionType': 'FullyReplicated'|'ShardedByS3Key',
-                # 'FeaturesAttribute': 'string',
-                # 'InferenceAttribute': 'string',
-                # 'ProbabilityAttribute': 'string',
-                # 'ProbabilityThresholdAttribute': 123.0,
-                # 'StartTimeOffset': 'string',
-                # 'EndTimeOffset': 'string',
-                # 'ExcludeFeaturesAttribute': 'string'
-            }
-        }
-    else:
-        job_input={
-            'BatchTransformInput': {
-                'DataCapturedDestinationS3Uri': f'{data_cature_dir}/',
-                'DatasetFormat': dataset_format,
-                'LocalPath': '/opt/ml/processing/input'#,
-                # 'S3InputMode': 'Pipe'|'File',
-                # 'S3DataDistributionType': 'FullyReplicated'|'ShardedByS3Key',
-                # 'FeaturesAttribute': 'string',
-                # 'InferenceAttribute': 'string',
-                # 'ProbabilityAttribute': 'string',
-                # 'ProbabilityThresholdAttribute': 123.0,
-                # 'StartTimeOffset': 'string',
-                # 'EndTimeOffset': 'string',
-                # 'ExcludeFeaturesAttribute': 'string'
-            }
-        }
-    job_input['GroundTruthS3Input']={'S3Uri': ground_truth_dir}
+
+    job_input=get_job_input(
+        deploy_type, 
+        endpoint_name=endpoint_name,
+        rt_local_path='/opt/ml/processing/input/endpoint',
+        bch_local_path='/opt/ml/processing/input',
+        dataset_format=dataset_format,
+        data_capture_dir=data_capture_dir,
+        ground_truth_dir=ground_truth_dir
+    )
 
     response = sm_client.create_model_bias_job_definition(
         JobDefinitionName=name,
@@ -205,7 +193,7 @@ def create_model_bias_job_definition(
         },
         ModelBiasAppSpecification={
             'ImageUri': image_uri,
-            'ConfigUri': f'{monitor_dir}/check_output',
+            'ConfigUri': f'{monitor_dir}/config/analysis_config.json',
             # 'Environment': {'string': 'string'}
         },
         ModelBiasJobInput=job_input,
@@ -257,41 +245,17 @@ def create_model_explainability_job_definition(
     max_runtime_in_seconds=1800,  
     dataset_format={'Csv': {'Header': True}}, # {'Csv':{'Header': True|False},'Json': {'Line': True|False}, Parquet': {}}
     endpoint_name=None, 
-    data_cature_dir=None
+    data_capture_dir=None
     ):
-    if deploy_type == 'realtime':
-        job_input={
-            'EndpointInput': {
-                'EndpointName': endpoint_name,
-                'LocalPath': '/opt/ml/processing/input/endpoint'#,
-                # 'S3InputMode': 'Pipe'|'File',
-                # 'S3DataDistributionType': 'FullyReplicated'|'ShardedByS3Key',
-                # 'FeaturesAttribute': 'string',
-                # 'InferenceAttribute': 'string',
-                # 'ProbabilityAttribute': 'string',
-                # 'ProbabilityThresholdAttribute': 123.0,
-                # 'StartTimeOffset': 'string',
-                # 'EndTimeOffset': 'string',
-                # 'ExcludeFeaturesAttribute': 'string'
-            }
-        }
-    else:
-        job_input={
-            'BatchTransformInput': {
-                'DataCapturedDestinationS3Uri': f'{data_cature_dir}/',
-                'DatasetFormat': dataset_format,
-                'LocalPath': '/opt/ml/processing/input'#,
-                # 'S3InputMode': 'Pipe'|'File',
-                # 'S3DataDistributionType': 'FullyReplicated'|'ShardedByS3Key',
-                # 'FeaturesAttribute': 'string',
-                # 'InferenceAttribute': 'string',
-                # 'ProbabilityAttribute': 'string',
-                # 'ProbabilityThresholdAttribute': 123.0,
-                # 'StartTimeOffset': 'string',
-                # 'EndTimeOffset': 'string',
-                # 'ExcludeFeaturesAttribute': 'string'
-            }
-        }
+
+    job_input=get_job_input(
+        deploy_type, 
+        endpoint_name=endpoint_name,
+        rt_local_path='/opt/ml/processing/input/endpoint',
+        bch_local_path='/opt/ml/processing/input',
+        dataset_format=dataset_format,
+        data_capture_dir=data_capture_dir
+    )
 
     response = sm_client.create_model_explainability_job_definition(
         JobDefinitionName=name,
@@ -301,7 +265,7 @@ def create_model_explainability_job_definition(
         },
         ModelExplainabilityAppSpecification={
             'ImageUri': image_uri,
-            'ConfigUri': f'{monitor_dir}/check_output',
+            'ConfigUri': f'{monitor_dir}/config/analysis_config.json',
             # 'Environment': {'string': 'string'}
         },
         ModelExplainabilityJobInput=job_input,
@@ -346,7 +310,7 @@ def create_model_quality_job_definition(
     role_arn,
     deploy_type,
     monitor_dir,
-    ground_truth_label,
+    prediction_name,
     ground_truth_dir,
     problem_type,
     image_uri="156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
@@ -356,42 +320,19 @@ def create_model_quality_job_definition(
     max_runtime_in_seconds=1800,  
     dataset_format={'Csv': {'Header': True}}, # {'Csv':{'Header': True|False},'Json': {'Line': True|False}, Parquet': {}}
     endpoint_name=None, 
-    data_cature_dir=None
+    data_capture_dir=None
 ):
-    if deploy_type == 'realtime':
-        job_input={
-            'EndpointInput': {
-                'EndpointName': endpoint_name,
-                'LocalPath': '/opt/ml/processing/input/endpoint',
-                # 'S3InputMode': 'Pipe'|'File',
-                # 'S3DataDistributionType': 'FullyReplicated'|'ShardedByS3Key',
-                # 'FeaturesAttribute': 'string',
-                'InferenceAttribute': ground_truth_label,
-                # 'ProbabilityAttribute': 'string',
-                # 'ProbabilityThresholdAttribute': 123.0,
-                # 'StartTimeOffset': 'string',
-                # 'EndTimeOffset': 'string',
-                # 'ExcludeFeaturesAttribute': 'string'
-            }
-        }
-    else:
-        job_input={
-            'BatchTransformInput': {
-                'DataCapturedDestinationS3Uri': f'{data_cature_dir}/',
-                'DatasetFormat': dataset_format,
-                'LocalPath': '/opt/ml/processing/input'#,
-                # 'S3InputMode': 'Pipe'|'File',
-                # 'S3DataDistributionType': 'FullyReplicated'|'ShardedByS3Key',
-                # 'FeaturesAttribute': 'string',
-                # 'InferenceAttribute': 'string',
-                # 'ProbabilityAttribute': 'string',
-                # 'ProbabilityThresholdAttribute': 123.0,
-                # 'StartTimeOffset': 'string',
-                # 'EndTimeOffset': 'string',
-                # 'ExcludeFeaturesAttribute': 'string'
-            }
-        }
-    job_input['GroundTruthS3Input']={'S3Uri': ground_truth_dir}
+
+    job_input=get_job_input(
+        deploy_type, 
+        endpoint_name=endpoint_name,
+        rt_local_path='/opt/ml/processing/input/endpoint',
+        inference_attribute=prediction_name,
+        bch_local_path='/opt/ml/processing/input',
+        dataset_format=dataset_format,
+        data_capture_dir=data_capture_dir,
+        ground_truth_dir=ground_truth_dir
+    )
 
     response = sm_client.create_model_quality_job_definition(
         JobDefinitionName=name,
@@ -463,7 +404,7 @@ def create_data_quality_monitoring_schedule(
     data_analysis_start_time="-PT2H", 
     data_analysis_end_time="-PT1H",
     endpoint_name=None, 
-    data_cature_dir=None
+    data_capture_dir=None
 ):
 
     job_definition_name = f'{name}-job'
@@ -481,7 +422,7 @@ def create_data_quality_monitoring_schedule(
         max_runtime_in_seconds=max_runtime_in_seconds,
         dataset_format=dataset_format,
         endpoint_name=endpoint_name, 
-        data_cature_dir=data_cature_dir, 
+        data_capture_dir=data_capture_dir, 
     )
 
     response = sm_client.create_monitoring_schedule(
@@ -517,7 +458,7 @@ def create_model_bias_monitoring_schedule(
     data_analysis_start_time="-PT2H", 
     data_analysis_end_time="-PT1H",
     endpoint_name=None, 
-    data_cature_dir=None
+    data_capture_dir=None
 ):
     job_definition_name = f'{name}-job'
 
@@ -535,7 +476,7 @@ def create_model_bias_monitoring_schedule(
         max_runtime_in_seconds=max_runtime_in_seconds,
         dataset_format=dataset_format,
         endpoint_name=endpoint_name, 
-        data_cature_dir=data_cature_dir, 
+        data_capture_dir=data_capture_dir, 
     )
 
     response = sm_client.create_monitoring_schedule(
@@ -570,7 +511,7 @@ def create_model_explainability_monitoring_schedule(
     data_analysis_start_time="-PT2H", 
     data_analysis_end_time="-PT1H",
     endpoint_name=None, 
-    data_cature_dir=None
+    data_capture_dir=None
 ):
 
     job_definition_name = f'{name}-job'
@@ -588,7 +529,7 @@ def create_model_explainability_monitoring_schedule(
         max_runtime_in_seconds=max_runtime_in_seconds,  
         dataset_format=dataset_format,
         endpoint_name=endpoint_name, 
-        data_cature_dir=data_cature_dir
+        data_capture_dir=data_capture_dir
     )
 
     response = sm_client.create_monitoring_schedule(
@@ -613,7 +554,7 @@ def create_model_quality_monitoring_schedule(
     role_arn,
     deploy_type,
     problem_type, # 'BinaryClassification'|'MulticlassClassification'|'Regression'
-    ground_truth_label,
+    prediction_name,
     monitor_dir,
     ground_truth_dir,
     image_uri="156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
@@ -626,7 +567,7 @@ def create_model_quality_monitoring_schedule(
     data_analysis_start_time="-PT2H", 
     data_analysis_end_time="-PT1H",
     endpoint_name=None, 
-    data_cature_dir=None
+    data_capture_dir=None
 ):
 
     job_definition_name = f'{name}-job'
@@ -637,7 +578,7 @@ def create_model_quality_monitoring_schedule(
         role_arn,
         deploy_type, 
         monitor_dir, 
-        ground_truth_label,
+        prediction_name,
         ground_truth_dir,
         problem_type,
         image_uri=image_uri,
@@ -647,7 +588,7 @@ def create_model_quality_monitoring_schedule(
         max_runtime_in_seconds=max_runtime_in_seconds,  
         dataset_format=dataset_format,
         endpoint_name=endpoint_name, 
-        data_cature_dir=data_cature_dir
+        data_capture_dir=data_capture_dir
     )
 
     response = sm_client.create_monitoring_schedule(
@@ -670,7 +611,7 @@ def data_quality_handler(event, context):
     monitoring_type='DataQuality'
 
     endpoint_name = event['endpoint_name'] if 'endpoint_name' in event else None
-    data_cature_dir = event['data_cature_dir'] if 'data_cature_dir' in event else None
+    data_capture_dir = event['data_capture_dir'] if 'data_capture_dir' in event else None
     name = event['name']
     role_arn = event['monitor_role']
     deploy_type = event['deploy_type']
@@ -705,7 +646,7 @@ def data_quality_handler(event, context):
         data_analysis_start_time=data_analysis_start_time, 
         data_analysis_end_time=data_analysis_end_time,
         endpoint_name=endpoint_name, 
-        data_cature_dir=data_cature_dir
+        data_capture_dir=data_capture_dir
     )
     return {}
 
@@ -714,7 +655,7 @@ def model_bias_handler(event, context):
     monitoring_type='ModelBias'
 
     endpoint_name = event['endpoint_name'] if 'endpoint_name' in event else None
-    data_cature_dir = event['data_cature_dir'] if 'data_cature_dir' in event else None
+    data_capture_dir = event['data_capture_dir'] if 'data_capture_dir' in event else None
     name = event['name']
     role_arn = event['monitor_role']
     deploy_type = event['deploy_type']
@@ -751,7 +692,7 @@ def model_bias_handler(event, context):
         data_analysis_start_time=data_analysis_start_time, 
         data_analysis_end_time=data_analysis_end_time,
         endpoint_name=endpoint_name, 
-        data_cature_dir=data_cature_dir
+        data_capture_dir=data_capture_dir
     )
     return {}
 
@@ -760,7 +701,7 @@ def model_explainability_handler(event, context):
     monitoring_type='ModelExplainability'
 
     endpoint_name = event['endpoint_name'] if 'endpoint_name' in event else None
-    data_cature_dir = event['data_cature_dir'] if 'data_cature_dir' in event else None
+    data_capture_dir = event['data_capture_dir'] if 'data_capture_dir' in event else None
     name = event['name']
     role_arn = event['monitor_role']
     deploy_type = event['deploy_type']
@@ -795,7 +736,7 @@ def model_explainability_handler(event, context):
         data_analysis_start_time=data_analysis_start_time, 
         data_analysis_end_time=data_analysis_end_time,
         endpoint_name=endpoint_name, 
-        data_cature_dir=data_cature_dir
+        data_capture_dir=data_capture_dir
     )
     return {}
 
@@ -804,12 +745,12 @@ def model_quality_handler(event, context):
     monitoring_type='ModelQuality'
 
     endpoint_name = event['endpoint_name'] if 'endpoint_name' in event else None
-    data_cature_dir = event['data_cature_dir'] if 'data_cature_dir' in event else None
+    data_capture_dir = event['data_capture_dir'] if 'data_capture_dir' in event else None
     name = event['name']
     role_arn = event['monitor_role']
     deploy_type = event['deploy_type']
     problem_type = event['problem_type'] # 'BinaryClassification'|'MulticlassClassification'|'Regression'
-    ground_truth_label = event['ground_truth_label']
+    prediction_name = event['prediction_name']
     monitor_dir = event['monitor_dir']
     ground_truth_dir = event['ground_truth_dir']
     image_uri = event['image_uri'] if 'image_uri' in event else "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer"
@@ -832,7 +773,7 @@ def model_quality_handler(event, context):
         role_arn,
         deploy_type,
         problem_type,
-        ground_truth_label,
+        prediction_name,
         monitor_dir,
         ground_truth_dir,
         image_uri=image_uri,
@@ -845,6 +786,6 @@ def model_quality_handler(event, context):
         data_analysis_start_time=data_analysis_start_time, 
         data_analysis_end_time=data_analysis_end_time,
         endpoint_name=endpoint_name, 
-        data_cature_dir=data_cature_dir
+        data_capture_dir=data_capture_dir
     )
     return {}

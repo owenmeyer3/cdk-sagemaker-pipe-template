@@ -34,3 +34,4 @@ def get_state_definition_json(chain:stepfunctions.IChainable):
     for state in states:
         definition["States"][state.node.id]=full_chain_json(state)
     return json.dumps(definition, indent=2)
+

@@ -38,8 +38,8 @@ def parse_instances_fn_task(scope, construct_id, function_name, monitor_instance
         scope, construct_id,
         use_docker=False,
         function_name=function_name,
-        code_path='code/utils',
-        handler='utils.instance_parse_handler',
+        code_path='code/utils_scripts',
+        handler='utils_scripts.instance_parse_handler',
         role=scope.lambda_execution_role_arn,
         log_group_name=f"/lambda/{function_name}",
         log_retention=logs.RetentionDays.ONE_MONTH,
@@ -366,7 +366,7 @@ def schedule_mq_task_fn_task(scope,
         monitor_role,
         deploy_type,
         problem_type,
-        ground_truth_label,
+        prediction_name,
         ground_truth_dir_lkp,
         mq_monitor_dir,
         monitor_instance_type_lkp,
@@ -400,7 +400,7 @@ def schedule_mq_task_fn_task(scope,
             'monitor_role': monitor_role.role_arn,
             'deploy_type':deploy_type,
             'problem_type':problem_type,
-            'ground_truth_label':ground_truth_label,
+            'prediction_name':prediction_name,
             'monitor_dir': mq_monitor_dir,
             'ground_truth_dir':stepfunctions.JsonPath.string_at(ground_truth_dir_lkp),
             'image_uri': image_uri,
@@ -535,3 +535,127 @@ def check_mb_task_fn_task(scope, construct_id, function_name):
     )
     return [task, lambda_function]
 
+
+def run_dq_bl_job_fn_task(scope, construct_id, function_name, job_name, monitor_role, monitor_dir, monitor_instance_type_lkp, dataset_format):
+    lambda_function = CLambdaFunction(
+        scope, construct_id,
+        use_docker=False,
+        function_name=function_name,
+        code_path='code/baselining/',
+        handler='baselining.run_dq_bl_job_handler',
+        role=scope.lambda_execution_role_arn,
+        log_group_name=f"/lambda/{function_name}",
+        log_retention=logs.RetentionDays.ONE_MONTH,
+        runtime='python3.11',
+        timeout=Duration.minutes(5)
+    )
+    task = lambda_function.generate_task(
+        payload={
+            'name':job_name,
+            'role_arn':monitor_role.role_arn,
+            'monitor_dir':monitor_dir,
+            'instance_type':stepfunctions.JsonPath.string_at(monitor_instance_type_lkp),
+            'dataset_format':json.dumps(dataset_format),
+        },
+        outputs=[]
+        # result_selector={}
+    )
+    return [task, lambda_function]
+
+
+
+def run_mq_bl_job_fn_task(scope, construct_id, function_name, job_name, monitor_role, monitor_dir,inference_attribute,ground_truth_attribute,problem_type,probability_attribute,probability_threshold_attribute, monitor_instance_type_lkp, dataset_format):
+    lambda_function = CLambdaFunction(
+        scope, construct_id,
+        use_docker=False,
+        function_name=function_name,
+        code_path='code/baselining/',
+        handler='baselining.run_mq_bl_job_handler',
+        role=scope.lambda_execution_role_arn,
+        log_group_name=f"/lambda/{function_name}",
+        log_retention=logs.RetentionDays.ONE_MONTH,
+        runtime='python3.11',
+        timeout=Duration.minutes(5)
+    )
+    task = lambda_function.generate_task(
+        payload={
+            'name':job_name,
+            'role_arn':monitor_role.role_arn,
+            'monitor_dir':monitor_dir,
+            'inference_attribute':inference_attribute,
+            'ground_truth_attribute':ground_truth_attribute,
+            'problem_type':problem_type,
+            'probability_attribute':probability_attribute,
+            'probability_threshold_attribute':probability_threshold_attribute,
+            'instance_type':stepfunctions.JsonPath.string_at(monitor_instance_type_lkp),
+            'positive_label'
+            'dataset_format':json.dumps(dataset_format),
+        },
+        outputs=[]
+        # result_selector={}
+    )
+    return [task, lambda_function]
+
+
+def run_mb_bl_job_fn_task(scope, construct_id, function_name, job_name, monitor_role, monitor_dir, monitor_instance_type_lkp, inference_attribute, ground_truth_attribute, problem_type, probability_attribute, probability_threshold_attribute, positive_label, exclude_features_attribute, dataset_format):
+    lambda_function = CLambdaFunction(
+        scope, construct_id,
+        use_docker=False,
+        function_name=function_name,
+        code_path='code/baselining/',
+        handler='baselining.run_mb_bl_job_handler',
+        role=scope.lambda_execution_role_arn,
+        log_group_name=f"/lambda/{function_name}",
+        log_retention=logs.RetentionDays.ONE_MONTH,
+        runtime='python3.11',
+        timeout=Duration.minutes(5)
+    )
+    task = lambda_function.generate_task(
+        payload={
+            'name':job_name,
+            'role_arn':monitor_role.role_arn,
+            'monitor_dir':monitor_dir,
+            'inference_attribute':inference_attribute,
+            'ground_truth_attribute':ground_truth_attribute,
+            'problem_type':problem_type,
+            'probability_attribute':probability_attribute,
+            'probability_threshold_attribute':probability_threshold_attribute,
+            'instance_type':stepfunctions.JsonPath.string_at(monitor_instance_type_lkp),
+            'positive_label':positive_label,
+            'exclude_features_attribute':exclude_features_attribute,
+            'dataset_format':json.dumps(dataset_format),
+        },
+        outputs=[]
+        # result_selector={}
+    )
+    return [task, lambda_function]
+
+
+def run_me_bl_job_fn_task(scope, construct_id, function_name, job_name, monitor_role, monitor_dir, monitor_instance_type_lkp, inference_attribute, problem_type, probability_attribute, exclude_features_attribute, dataset_format):
+    lambda_function = CLambdaFunction(
+        scope, construct_id,
+        use_docker=False,
+        function_name=function_name,
+        code_path='code/baselining/',
+        handler='baselining.run_me_bl_job_handler',
+        role=scope.lambda_execution_role_arn,
+        log_group_name=f"/lambda/{function_name}",
+        log_retention=logs.RetentionDays.ONE_MONTH,
+        runtime='python3.11',
+        timeout=Duration.minutes(5)
+    )
+    task = lambda_function.generate_task(
+        payload={
+            'name':job_name,
+            'role_arn':monitor_role.role_arn,
+            'monitor_dir':monitor_dir,
+            'inference_attribute':inference_attribute,
+            'probability_attribute':probability_attribute,
+            'instance_type':stepfunctions.JsonPath.string_at(monitor_instance_type_lkp),
+            'exclude_features_attribute':exclude_features_attribute,
+            'dataset_format':json.dumps(dataset_format),
+        },
+        outputs=[]
+        # result_selector={}
+    )
+    return [task, lambda_function]

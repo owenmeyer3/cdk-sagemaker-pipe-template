@@ -4,7 +4,8 @@ import pandas as pd
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-s3 = boto3.client('s3')
+s3_client = boto3.client('s3')
+sm_client = boto3.client('s3')
 
 def string_to_type(s):
     if s == 'float':
@@ -24,7 +25,7 @@ def parse_s3_uri(s3_uri):
 
 def df_from_s3(s3_uri, header=0, names=None):
     bucket, key = parse_s3_uri(s3_uri)
-    obj = s3.get_object(Bucket=bucket, Key=key)
+    obj = s3_client.get_object(Bucket=bucket, Key=key)
 
     if names:
         return pd.read_csv(io.BytesIO(obj['Body'].read()), header=header, names=names)
@@ -36,7 +37,7 @@ def df_to_s3(df, s3_uri, index=False, header=True):
     df.to_csv(csv_buffer, index=index, header=header)
 
     bucket, key = parse_s3_uri(s3_uri)
-    s3.put_object(Bucket=bucket, Key=key, Body=csv_buffer.getvalue())
+    s3_client.put_object(Bucket=bucket, Key=key, Body=csv_buffer.getvalue())
 
 def make_baseline_sets(
     baseline_headered_file,
@@ -146,7 +147,6 @@ def get_baseline_preds_handler(event, context):
     print(f'baseline_pred_file {baseline_pred_file}')
 
     # move file to dest
-    s3_client = boto3.client('s3')
     uri_1_bucket, uri_1_key = parse_s3_uri(transformer_out_file)
     uri_2_bucket, uri_2_key = parse_s3_uri(baseline_pred_file)
     s3_client.copy_object(CopySource={'Bucket': uri_1_bucket, 'Key': uri_1_key}, Bucket=uri_2_bucket, Key=uri_2_key)
@@ -196,3 +196,179 @@ def make_baseline_sets_handler(event, context):
     )
     
     return {}
+
+
+def run_dq_bl_job_handler(event, context):
+    name = event['name']
+    role_arn = event['role_arn']
+    monitor_dir = event['monitor_dir']
+    instance_type = event['instance_type']
+    dataset_format = event['dataset_format'] # {'csv': {'header': True}},
+
+
+    response = sm_client.create_processing_job(
+        ProcessingJobName=name,
+        ProcessingResources={
+            'ClusterConfig': {
+                'InstanceCount': 1,
+                'InstanceType': instance_type,
+                'VolumeSizeInGB': 20
+            }
+        },
+        AppSpecification={
+            'ImageUri': "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
+            # No ContainerEntrypoint — let the container use its default 'analyze' script
+        },
+        Environment={
+            'dataset_source': monitor_dir+'/baseline.csv',
+            'output_path': f'{monitor_dir}/info',
+            'dataset_format': json.dumps(dataset_format),
+            'analysis_type': 'DATA_QUALITY',
+            'publish_cloudwatch_metrics': 'Disabled'
+        },
+        RoleArn=role_arn,
+        StoppingCondition={
+            'MaxRuntimeInSeconds': 1800
+        }
+    )
+    return response
+
+
+def run_mq_bl_job_handler(event, context):
+    name = event['name']
+    role_arn = event['role_arn']
+    monitor_dir = event['monitor_dir']
+    inference_attribute = event['inference_attribute'] # column name of model prediction in dataset
+    ground_truth_attribute = event['ground_truth_attribute'] # column name of true label in dataset
+    problem_type = event['problem_type']
+    probability_attribute = event['probability_attribute']
+    probability_threshold_attribute = event['probability_threshold_attribute']
+    instance_type = event['instance_type']
+    positive_label = event['positive_label']
+    dataset_format = event['dataset_format'] # {'csv': {'header': True}},
+
+    environment = {
+        'dataset_source': monitor_dir+'/baseline.csv',
+        'output_path': f'{monitor_dir}/info',
+        'dataset_format': json.dumps(dataset_format),
+        'analysis_type': 'MODEL_QUALITY',
+        'problem_type': problem_type,
+        'inference_attribute': inference_attribute,
+        'ground_truth_attribute': ground_truth_attribute,
+        'publish_cloudwatch_metrics': 'Disabled'
+    }
+    if probability_attribute: environment['probability_attribute'] = probability_attribute
+    if probability_threshold_attribute: environment['probability_threshold_attribute'] = str(probability_threshold_attribute)
+    if positive_label: environment['positive_label'] = positive_label
+
+    response = sm_client.create_processing_job(
+        ProcessingJobName=name,
+        ProcessingResources={
+            'ClusterConfig': {
+                'InstanceCount': 1,
+                'InstanceType': instance_type,
+                'VolumeSizeInGB': 20
+            }
+        },
+        AppSpecification={
+            'ImageUri': "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
+        },
+        Environment=environment,
+        RoleArn=role_arn,
+        StoppingCondition={
+            'MaxRuntimeInSeconds': 1800
+        }
+    )
+    return response
+
+
+def run_mb_bl_job_handler(event, context):
+    name = event['name']
+    role_arn = event['role_arn']
+    monitor_dir = event['monitor_dir']
+    inference_attribute = event['inference_attribute'] # column name of model prediction in dataset
+    ground_truth_attribute = event['ground_truth_attribute'] # column name of true label in dataset
+    problem_type = event['problem_type']
+    probability_attribute = event['probability_attribute']
+    probability_threshold_attribute = event['probability_threshold_attribute']
+    instance_type = event['instance_type']
+    positive_label = event['positive_label']
+    exclude_features_attribute = event['exclude_features_attribute']
+    dataset_format = event['dataset_format'] # {'csv': {'header': True}},
+
+
+    environment = {
+        'dataset_source': monitor_dir+'/baseline.csv',
+        'output_path': f'{monitor_dir}/info',
+        'dataset_format': json.dumps(dataset_format),
+        'analysis_type': 'BIAS',
+        'problem_type': problem_type,
+        'inference_attribute': inference_attribute,
+        'ground_truth_attribute': ground_truth_attribute,
+        'publish_cloudwatch_metrics': 'Disabled'
+    }
+    if probability_attribute: environment['probability_attribute'] = probability_attribute
+    if probability_threshold_attribute: environment['probability_threshold_attribute'] = str(probability_threshold_attribute)
+    if positive_label: environment['positive_label'] = positive_label
+    if exclude_features_attribute: environment['exclude_features_attribute'] = exclude_features_attribute
+
+    response = sm_client.create_processing_job(
+        ProcessingJobName=name,
+        ProcessingResources={
+            'ClusterConfig': {
+                'InstanceCount': 1,
+                'InstanceType': instance_type,
+                'VolumeSizeInGB': 20
+            }
+        },
+        AppSpecification={
+            'ImageUri': "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
+        },
+        Environment=environment,
+        RoleArn=role_arn,
+        StoppingCondition={
+            'MaxRuntimeInSeconds': 1800
+        }
+    )
+    return response
+
+def run_me_bl_job_handler(event, context):
+    name = event['name']
+    role_arn = event['role_arn']
+    monitor_dir = event['monitor_dir']
+    inference_attribute = event['inference_attribute'] # column name of model prediction in dataset
+    probability_attribute = event['probability_attribute']
+    instance_type = event['instance_type']
+    dataset_format = event['dataset_format'] # {'csv': {'header': True}},
+    exclude_features_attribute = event['exclude_features_attribute'] 
+
+    environment = {
+        'dataset_source': monitor_dir+'/baseline.csv',
+        'output_path': f'{monitor_dir}/info',
+        'dataset_format': json.dumps(dataset_format),
+        'analysis_type': 'EXPLAINABILITY',
+        'publish_cloudwatch_metrics': 'Disabled'
+    }
+    if inference_attribute: environment['inference_attribute'] = inference_attribute
+    if probability_attribute: environment['probability_attribute'] = probability_attribute
+    if exclude_features_attribute: environment['exclude_features_attribute'] = exclude_features_attribute
+
+    response = sm_client.create_processing_job(
+        ProcessingJobName=name,
+        ProcessingResources={
+            'ClusterConfig': {
+                'InstanceCount': 1,
+                'InstanceType': instance_type,
+                'VolumeSizeInGB': 20
+            }
+        },
+        AppSpecification={
+            'ImageUri': "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
+        },
+        Environment=environment,
+        RoleArn=role_arn,
+        StoppingCondition={
+            'MaxRuntimeInSeconds': 1800
+        }
+    )
+    return response
