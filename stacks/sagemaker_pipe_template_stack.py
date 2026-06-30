@@ -10,6 +10,7 @@ from aws_cdk import (
     aws_events as events,
     aws_events_targets as targets,
     aws_ecr_assets as ecr_assets,
+    aws_ecr as ecr,
     aws_lambda as _lambda
 )
 from constructs import Construct
@@ -31,6 +32,7 @@ class SagemakerPipeTemplateStack(Stack):
         self.target_name=project_config['TARGET_NAME']
         self.target_type = project_config['TARGET_TYPE']
         self.problem_type=project_config['PROBLEM_TYPE']
+        self.feature_names=project_config['FEATURE_NAMES']
         self.prediction_name=project_config['PREDICTION_NAME']
         self.ground_truth_label=project_config['GROUND_TRUTH_LABEL']
         self.model_package_group_name=project_config['MODEL_PACKAGE_GROUP_NAME']
@@ -45,6 +47,10 @@ class SagemakerPipeTemplateStack(Stack):
         assert os.getenv('ACTION') not in ['deploy', 'inference'], 'ACTION must be in [deploy, inference]'
 
         print(f"ROLE: {self.state_machine_execution_role.role_arn}")
+
+        baseline_image_repo = ecr.Repository.from_repository_name(
+            self, 'BaselineImageRepo', '088461143167.dkr.ecr.us-east-1.amazonaws.com/baseline-lambda:latest'
+        )
 
         # Derived Params
         self.pipeline_dir =   f's3://{self.pipeline_bucket}/pipelines/{self.name}'
@@ -121,12 +127,6 @@ class SagemakerPipeTemplateStack(Stack):
         baseline_X_file_lkp = f'{prep_baseline_sets_task._result_path}.BASELINE_X_FILE'
         baseline_X_filename_lkp = f'{prep_baseline_sets_task._result_path}.BASELINE_X_FILENAME'
 
-        # baseline_transform_task, baseline_transform_function = lambda_tasks.sm_transform_fn_task(self, 'BaselineTransform', f'{self.name}-baseline-transform', model_name_lkp, self.transform_instance_type_lkp, s3_data_source_lkp=baseline_X_file_lkp, transform_out_dir=self.baseline_dir)
-        # baseline_transform_job_arn_lkp = f'{baseline_transform_task._result_path}.TRANSFORM_JOB_ARN'
-        # baseline_transform_job_name_lkp = f'{baseline_transform_task._result_path}.JOB_NAME'
-        # baseline_transform_out_dir_lkp = f'{baseline_transform_task._result_path}.OUTPUT_PATH' # "s3://bucket/output/"
-        # baseline_transform_status_lkp = f'{baseline_transform_task._result_path}.STATUS'
-
         baseline_transform_chain, baseline_transform_end, baseline_transform_out_dir_lkp = sagemaker_tasks.get_transform_task(
             scope, 
             'BaselineTransform', 
@@ -157,105 +157,52 @@ class SagemakerPipeTemplateStack(Stack):
             layers=[self.pandas_layer_version]
         )
 
-        # dq_baseline_task, dq_baseline_function = lambda_tasks.run_dq_bl_job_fn_task(
-        #     self, 
-        #     'DQBaselineJob', 
-        #     f'{self.name}-dq-baseline-fn', 
-        #     f'{self.name}-dq-baseline-job', 
-        #     self.other_execution_role_arn, 
-        #     self.dq_monitor_dir, 
-        #     self.monitor_instance_type_lkp
-        # )
-        # dq_bl_job_lkp = f'{dq_baseline_task._result_path}.PROCESSING_JOB_ARN'
-
-        # mq_baseline_task, mq_baseline_function = lambda_tasks.run_mq_bl_job_fn_task(
-        #     self, 
-        #     'MQBaselineJob', 
-        #     f'{self.name}-mq-baseline-fn', 
-        #     f'{self.name}-mq-baseline-job', 
-        #     self.other_execution_role_arn, 
-        #     self.mq_monitor_dir, 
-        #     self.prediction_name,
-        #     self.target_name,
-        #     self.problem_type,
-        #     self.monitor_instance_type_lkp
-        # )
-        # mq_bl_job_lkp = f'{mq_baseline_task._result_path}.PROCESSING_JOB_ARN'
-
-        # mb_baseline_task, mb_baseline_function = lambda_tasks.run_mb_bl_job_fn_task(
-        #     self, 
-        #     'MBBaselineJob', 
-        #     f'{self.name}-mb-baseline-fn', 
-        #     f'{self.name}-mb-baseline-job',
-        #     self.other_execution_role_arn, 
-        #     self.mb_monitor_dir, 
-        #     self.monitor_instance_type_lkp, 
-        #     self.prediction_name,
-        #     self.target_name,
-        #     self.problem_type
-        # )
-        # mb_bl_job_lkp = f'{mb_baseline_task._result_path}.PROCESSING_JOB_ARN'
-
-        # me_baseline_task, me_baseline_function = lambda_tasks.run_me_bl_job_fn_task(
-        #     self, 
-        #     'MEBaselineJob', 
-        #     f'{self.name}-me-baseline-fn', 
-        #     f'{self.name}-me-baseline-job',
-        #     self.other_execution_role_arn, 
-        #     self.me_monitor_dir, 
-        #     self.monitor_instance_type_lkp, 
-        #     self.prediction_name
-        # )
-        # me_bl_job_lkp = f'{me_baseline_task._result_path}.PROCESSING_JOB_ARN'
-
-
-        dq_baseline_task=sagemaker_tasks.get_dq_bl_task(
+        dq_baseline_task, dq_baseline_function = lambda_tasks.run_dq_bl_job_fn_task(
             self, 
             'DQBaselineJob', 
-            f'{self.name}-dq-baseline-job', 
+            f'{self.name}-dq-baseline-fn', 
+            self.baseline_image_repo,
             self.other_execution_role_arn, 
             self.dq_monitor_dir, 
-            self.monitor_instance_type_lkp
         )
-        dq_bl_job_lkp = f'{dq_baseline_task._result_path}.ProcessingJobArn'
 
-
-        mq_baseline_task=sagemaker_tasks.get_mq_bl_task(
+        mq_baseline_task, mq_baseline_function = lambda_tasks.run_mq_bl_job_fn_task(
             self, 
             'MQBaselineJob', 
-            f'{self.name}-mq-baseline-job',
+            f'{self.name}-mq-baseline-fn', 
+            self.baseline_image_repo,
             self.other_execution_role_arn, 
             self.mq_monitor_dir, 
-            self.monitor_instance_type_lkp, 
-            self.problem_type,
             self.prediction_name,
-            self.target_name 
-        ) 
-        mq_bl_job_lkp = f'{mq_baseline_task._result_path}.ProcessingJobArn'
+            self.target_name,
+            self.problem_type,
+            probability_attribute=None, # Classification Only,
+            probability_threshold_attribute=None,  # Classification Only
+        )
 
-        mb_baseline_task=sagemaker_tasks.get_mb_bl_task(
+        mb_baseline_task, mb_baseline_function = lambda_tasks.run_mb_bl_job_fn_task(
             self, 
             'MBBaselineJob', 
-            f'{self.name}-mb-baseline-job',
+            f'{self.name}-mb-baseline-fn',
+            model_name_lkp,
+            self.baseline_image_repo,
             self.other_execution_role_arn, 
             self.mb_monitor_dir, 
-            self.monitor_instance_type_lkp, 
-            self.problem_type,
-            self.prediction_name,
-            self.target_name 
+            self.target_name
         )
-        mb_bl_job_lkp = f'{mb_baseline_task._result_path}.ProcessingJobArn'
 
-        me_baseline_task=sagemaker_tasks.get_me_bl_task(
+        me_baseline_task, me_baseline_function = lambda_tasks.run_me_bl_job_fn_task(
             self, 
             'MEBaselineJob', 
-            f'{self.name}-me-baseline-job',
+            f'{self.name}-me-baseline-fn', 
+            self.baseline_image_repo,
+            model_name_lkp,
             self.other_execution_role_arn, 
             self.me_monitor_dir, 
-            self.monitor_instance_type_lkp, 
-            self.prediction_name,
+            self.target_name,
+            self.baseline_cols_lkp,
+            baseline_X_file_lkp
         )
-        me_bl_job_lkp = f'{me_baseline_task._result_path}.ProcessingJobArn'
         
         parallel_baseline_jobs=stepfunctions.Parallel(self, 'ParallelBaselineJobs') \
             .branch(mb_baseline_task) \

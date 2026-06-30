@@ -43,7 +43,7 @@ class CLambdaFunction(Construct):
             if 'dockerfile' not in kwargs == 'image_asset' not in kwargs:
                 raise ValueError("dockerfile or image_asset argument must be specified (not neither or both) when using a docker lambda function")
             dockerfile=kwargs.pop('dockerfile', None)
-            image_asset=kwargs.pop('dockerfile', None)
+            image_asset=kwargs.pop('image_asset', None)
             build_args=kwargs.pop('build_args', {})
             if dockerfile:
                 image_code=_lambda.DockerImageCode.from_image_asset(directory=get_local_project_root(), file=dockerfile, build_args=build_args)

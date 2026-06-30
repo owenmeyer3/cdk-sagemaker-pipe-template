@@ -1,602 +1,982 @@
-{
-  "StartAt": "Start",
-  "States": {
-    "Start": {
-      "Type": "Pass",
-      "Next": "GetOrCreateModelTask"
+@jsii.implements(INextable)
+class Parallel(
+    State,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_stepfunctions.Parallel",
+):
+    '''Define a Parallel state in the state machine.
+
+    A Parallel state can be used to run one or more state machines at the same
+    time.
+
+    The Result of a Parallel state is an array of the results of its substatemachines.
+
+    :exampleMetadata: nofixture infused
+
+    Example::
+
+        from aws_cdk import Stack
+        from constructs import Construct
+        import aws_cdk.aws_stepfunctions as sfn
+        
+        class MyJob(sfn.StateMachineFragment):
+        
+            def __init__(self, parent, id, *, jobFlavor):
+                super().__init__(parent, id)
+        
+                choice = sfn.Choice(self, "Choice").when(sfn.Condition.string_equals("$.branch", "left"), sfn.Pass(self, "Left Branch")).when(sfn.Condition.string_equals("$.branch", "right"), sfn.Pass(self, "Right Branch"))
+        
+                # ...
+        
+                self.start_state = choice
+                self.end_states = choice.afterwards().end_states
+        
+        class MyStack(Stack):
+            def __init__(self, scope, id):
+                super().__init__(scope, id)
+                # Do 3 different variants of MyJob in parallel
+                parallel = sfn.Parallel(self, "All jobs").branch(MyJob(self, "Quick", job_flavor="quick").prefix_states()).branch(MyJob(self, "Medium", job_flavor="medium").prefix_states()).branch(MyJob(self, "Slow", job_flavor="slow").prefix_states())
+        
+                sfn.StateMachine(self, "MyStateMachine",
+                    definition_body=sfn.DefinitionBody.from_chainable(parallel)
+                )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        arguments: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        parameters: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        result_path: typing.Optional[builtins.str] = None,
+        result_selector: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        comment: typing.Optional[builtins.str] = None,
+        query_language: typing.Optional["QueryLanguage"] = None,
+        state_name: typing.Optional[builtins.str] = None,
+        assign: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        input_path: typing.Optional[builtins.str] = None,
+        output_path: typing.Optional[builtins.str] = None,
+        outputs: typing.Any = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: Descriptive identifier for this chainable.
+        :param arguments: Parameters pass a collection of key-value pairs, either static values or JSONata expressions that select from the input. Default: No arguments
+        :param parameters: Parameters pass a collection of key-value pairs, either static values or JSONPath expressions that select from the input. Default: No parameters
+        :param result_path: JSONPath expression to indicate where to inject the state's output. May also be the special value JsonPath.DISCARD, which will cause the state's input to become its output. Default: $
+        :param result_selector: The JSON that will replace the state's raw result and become the effective result before ResultPath is applied. You can use ResultSelector to create a payload with values that are static or selected from the state's raw result. Default: - None
+        :param comment: A comment describing this state. Default: No comment
+        :param query_language: The name of the query language used by the state. If the state does not contain a ``queryLanguage`` field, then it will use the query language specified in the top-level ``queryLanguage`` field. Default: - JSONPath
+        :param state_name: Optional name for this state. Default: - The construct ID will be used as state name
+        :param assign: Workflow variables to store in this step. Using workflow variables, you can store data in a step and retrieve that data in future steps. Default: - Not assign variables
+        :param input_path: JSONPath expression to select part of the state to be the input to this state. May also be the special value JsonPath.DISCARD, which will cause the effective input to be the empty object {}. Default: $
+        :param output_path: JSONPath expression to select part of the state to be the output to this state. May also be the special value JsonPath.DISCARD, which will cause the effective output to be the empty object {}. Default: $
+        :param outputs: Used to specify and transform output from the state. When specified, the value overrides the state output default. The output field accepts any JSON value (object, array, string, number, boolean, null). Any string value, including those inside objects or arrays, will be evaluated as JSONata if surrounded by {% %} characters. Output also accepts a JSONata expression directly. Default: - $states.result or $states.errorOutput
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__94610eed4635a69c6d4a92818527e6ecdf15561092c488fb6caa8d8ec9778a22)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = ParallelProps(
+            arguments=arguments,
+            parameters=parameters,
+            result_path=result_path,
+            result_selector=result_selector,
+            comment=comment,
+            query_language=query_language,
+            state_name=state_name,
+            assign=assign,
+            input_path=input_path,
+            output_path=output_path,
+            outputs=outputs,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="jsonata")
+    @builtins.classmethod
+    def jsonata(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        arguments: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        comment: typing.Optional[builtins.str] = None,
+        query_language: typing.Optional["QueryLanguage"] = None,
+        state_name: typing.Optional[builtins.str] = None,
+        assign: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        outputs: typing.Any = None,
+    ) -> "Parallel":
+        '''Define a Parallel state using JSONata in the state machine.
+
+        A Parallel state can be used to run one or more state machines at the same
+        time.
+
+        The Result of a Parallel state is an array of the results of its substatemachines.
+
+        :param scope: -
+        :param id: -
+        :param arguments: Parameters pass a collection of key-value pairs, either static values or JSONata expressions that select from the input. Default: No arguments
+        :param comment: A comment describing this state. Default: No comment
+        :param query_language: The name of the query language used by the state. If the state does not contain a ``queryLanguage`` field, then it will use the query language specified in the top-level ``queryLanguage`` field. Default: - JSONPath
+        :param state_name: Optional name for this state. Default: - The construct ID will be used as state name
+        :param assign: Workflow variables to store in this step. Using workflow variables, you can store data in a step and retrieve that data in future steps. Default: - Not assign variables
+        :param outputs: Used to specify and transform output from the state. When specified, the value overrides the state output default. The output field accepts any JSON value (object, array, string, number, boolean, null). Any string value, including those inside objects or arrays, will be evaluated as JSONata if surrounded by {% %} characters. Output also accepts a JSONata expression directly. Default: - $states.result or $states.errorOutput
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8ab5c7926073a19b65955afd1d2f4226f739dabf27b935be372e4e09ec97fc50)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = ParallelJsonataProps(
+            arguments=arguments,
+            comment=comment,
+            query_language=query_language,
+            state_name=state_name,
+            assign=assign,
+            outputs=outputs,
+        )
+
+        return typing.cast("Parallel", jsii.sinvoke(cls, "jsonata", [scope, id, props]))
+
+    @jsii.member(jsii_name="jsonPath")
+    @builtins.classmethod
+    def json_path(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        parameters: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        result_path: typing.Optional[builtins.str] = None,
+        result_selector: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        comment: typing.Optional[builtins.str] = None,
+        query_language: typing.Optional["QueryLanguage"] = None,
+        state_name: typing.Optional[builtins.str] = None,
+        assign: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        input_path: typing.Optional[builtins.str] = None,
+        output_path: typing.Optional[builtins.str] = None,
+    ) -> "Parallel":
+        '''Define a Parallel state using JSONPath in the state machine.
+
+        A Parallel state can be used to run one or more state machines at the same
+        time.
+
+        The Result of a Parallel state is an array of the results of its substatemachines.
+
+        :param scope: -
+        :param id: -
+        :param parameters: Parameters pass a collection of key-value pairs, either static values or JSONPath expressions that select from the input. Default: No parameters
+        :param result_path: JSONPath expression to indicate where to inject the state's output. May also be the special value JsonPath.DISCARD, which will cause the state's input to become its output. Default: $
+        :param result_selector: The JSON that will replace the state's raw result and become the effective result before ResultPath is applied. You can use ResultSelector to create a payload with values that are static or selected from the state's raw result. Default: - None
+        :param comment: A comment describing this state. Default: No comment
+        :param query_language: The name of the query language used by the state. If the state does not contain a ``queryLanguage`` field, then it will use the query language specified in the top-level ``queryLanguage`` field. Default: - JSONPath
+        :param state_name: Optional name for this state. Default: - The construct ID will be used as state name
+        :param assign: Workflow variables to store in this step. Using workflow variables, you can store data in a step and retrieve that data in future steps. Default: - Not assign variables
+        :param input_path: JSONPath expression to select part of the state to be the input to this state. May also be the special value JsonPath.DISCARD, which will cause the effective input to be the empty object {}. Default: $
+        :param output_path: JSONPath expression to select part of the state to be the output to this state. May also be the special value JsonPath.DISCARD, which will cause the effective output to be the empty object {}. Default: $
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__59516f88fca1f12471673842bc69a84f5bc6f1e5e9870f37ee194215ed330993)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = ParallelJsonPathProps(
+            parameters=parameters,
+            result_path=result_path,
+            result_selector=result_selector,
+            comment=comment,
+            query_language=query_language,
+            state_name=state_name,
+            assign=assign,
+            input_path=input_path,
+            output_path=output_path,
+        )
+
+        return typing.cast("Parallel", jsii.sinvoke(cls, "jsonPath", [scope, id, props]))
+
+    @jsii.member(jsii_name="addCatch")
+    def add_catch(
+        self,
+        handler: "IChainable",
+        *,
+        assign: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        errors: typing.Optional[typing.Sequence[builtins.str]] = None,
+        outputs: typing.Any = None,
+        result_path: typing.Optional[builtins.str] = None,
+    ) -> "Parallel":
+        '''Add a recovery handler for this state.
+
+        When a particular error occurs, execution will continue at the error
+        handler instead of failing the state machine execution.
+
+        :param handler: -
+        :param assign: Workflow variables to store in this step. Using workflow variables, you can store data in a step and retrieve that data in future steps. Default: - Not assign variables
+        :param errors: Errors to recover from by going to the given state. A list of error strings to retry, which can be either predefined errors (for example Errors.NoChoiceMatched) or a self-defined error. Default: All errors
+        :param outputs: This option for JSONata only. When you use JSONPath, then the state ignores this property. Used to specify and transform output from the state. When specified, the value overrides the state output default. The output field accepts any JSON value (object, array, string, number, boolean, null). Any string value, including those inside objects or arrays, will be evaluated as JSONata if surrounded by {% %} characters. Output also accepts a JSONata expression directly. Default: - $states.result or $states.errorOutput
+        :param result_path: JSONPath expression to indicate where to inject the error data. May also be the special value JsonPath.DISCARD, which will cause the error data to be discarded. Default: $
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__182be923de45451a3be4a0e5bda7642ee82b8bfb46a7fd13f9cdc8084f23f9bb)
+            check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
+        props = CatchProps(
+            assign=assign, errors=errors, outputs=outputs, result_path=result_path
+        )
+
+        return typing.cast("Parallel", jsii.invoke(self, "addCatch", [handler, props]))
+
+    @jsii.member(jsii_name="addRetry")
+    def add_retry(
+        self,
+        *,
+        backoff_rate: typing.Optional[jsii.Number] = None,
+        errors: typing.Optional[typing.Sequence[builtins.str]] = None,
+        interval: typing.Optional["_Duration_4839e8c3"] = None,
+        jitter_strategy: typing.Optional["JitterType"] = None,
+        max_attempts: typing.Optional[jsii.Number] = None,
+        max_delay: typing.Optional["_Duration_4839e8c3"] = None,
+    ) -> "Parallel":
+        '''Add retry configuration for this state.
+
+        This controls if and how the execution will be retried if a particular
+        error occurs.
+
+        :param backoff_rate: Multiplication for how much longer the wait interval gets on every retry. Default: 2
+        :param errors: Errors to retry. A list of error strings to retry, which can be either predefined errors (for example Errors.NoChoiceMatched) or a self-defined error. Default: All errors
+        :param interval: How many seconds to wait initially before retrying. Default: Duration.seconds(1)
+        :param jitter_strategy: Introduces a randomization over the retry interval. Default: - No jitter strategy
+        :param max_attempts: How many times to retry this particular error. May be 0 to disable retry for specific errors (in case you have a catch-all retry policy). Default: 3
+        :param max_delay: Maximum limit on retry interval growth during exponential backoff. Default: - No max delay
+        '''
+        props = RetryProps(
+            backoff_rate=backoff_rate,
+            errors=errors,
+            interval=interval,
+            jitter_strategy=jitter_strategy,
+            max_attempts=max_attempts,
+            max_delay=max_delay,
+        )
+
+        return typing.cast("Parallel", jsii.invoke(self, "addRetry", [props]))
+
+    @jsii.member(jsii_name="bindToGraph")
+    def bind_to_graph(self, graph: "StateGraph") -> None:
+        '''Overwrites State.bindToGraph. Adds branches to the Parallel state here so that any necessary prefixes are appended first.
+
+        :param graph: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f51369cf1df8050a9193691c532125259fc7c9e4293a269130e56f7600e8e869)
+            check_type(argname="argument graph", value=graph, expected_type=type_hints["graph"])
+        return typing.cast(None, jsii.invoke(self, "bindToGraph", [graph]))
+
+    @jsii.member(jsii_name="branch")
+    def branch(self, *branches: "IChainable") -> "Parallel":
+        '''Define one or more branches to run in parallel.
+
+        :param branches: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__697633cbf62e47597c9fdc7d002c0aee2b85afe1b449f1d0ce4917552cf01271)
+            check_type(argname="argument branches", value=branches, expected_type=typing.Tuple[type_hints["branches"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("Parallel", jsii.invoke(self, "branch", [*branches]))
+
+    @jsii.member(jsii_name="next")
+    def next(self, next: "IChainable") -> "Chain":
+        '''Continue normal execution with the given state.
+
+        :param next: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bf2f89f1d526659416028630d3a07331a2f13a5067fd5e45f41dd46895179826)
+            check_type(argname="argument next", value=next, expected_type=type_hints["next"])
+        return typing.cast("Chain", jsii.invoke(self, "next", [next]))
+
+    @jsii.member(jsii_name="toStateJson")
+    def to_state_json(
+        self,
+        top_level_query_language: typing.Optional["QueryLanguage"] = None,
+    ) -> typing.Mapping[typing.Any, typing.Any]:
+        '''Return the Amazon States Language object for this state.
+
+        :param top_level_query_language: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__86eeb8b905fbca725e29ef9dbc0cce94f54f93fe6f557f48b741da1ce791a607)
+            check_type(argname="argument top_level_query_language", value=top_level_query_language, expected_type=type_hints["top_level_query_language"])
+        return typing.cast(typing.Mapping[typing.Any, typing.Any], jsii.invoke(self, "toStateJson", [top_level_query_language]))
+
+    @jsii.member(jsii_name="validateState")
+    def _validate_state(self) -> typing.List[builtins.str]:
+        '''Validate this state.'''
+        return typing.cast(typing.List[builtins.str], jsii.invoke(self, "validateState", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="endStates")
+    def end_states(self) -> typing.List["INextable"]:
+        '''Continuable states of this Chainable.'''
+        return typing.cast(typing.List["INextable"], jsii.get(self, "endStates"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_stepfunctions.ParallelJsonPathProps",
+    jsii_struct_bases=[StateBaseProps, AssignableStateOptions, JsonPathCommonOptions],
+    name_mapping={
+        "comment": "comment",
+        "query_language": "queryLanguage",
+        "state_name": "stateName",
+        "assign": "assign",
+        "input_path": "inputPath",
+        "output_path": "outputPath",
+        "parameters": "parameters",
+        "result_path": "resultPath",
+        "result_selector": "resultSelector",
     },
-    "GetOrCreateModelTask": {
-      "Next": "RebaselineChoice",
-      "Type": "Task",
-      "TimeoutSeconds": 600,
-      "ResultPath": "$.GetOrCreateModelTask",
-      "ResultSelector": {
-        "MODEL_NAME.$": "$.Payload.MODEL_NAME",
-        "MODEL_PACKAGE_ARN.$": "$.Payload.MODEL_PACKAGE_ARN"
-      },
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-get-or-create-model",
-        "Payload": {
-          "model_package_group_name": "abalone",
-          "model_package_version.$": "$.MODEL_PACKAGE_VERSION",
-          "create_model_role": "arn:aws:iam::088461143167:role/SageMakerExecutionRole-1"
-        }
-      }
+)
+class ParallelJsonPathProps(
+    StateBaseProps,
+    AssignableStateOptions,
+    JsonPathCommonOptions,
+):
+    def __init__(
+        self,
+        *,
+        comment: typing.Optional[builtins.str] = None,
+        query_language: typing.Optional["QueryLanguage"] = None,
+        state_name: typing.Optional[builtins.str] = None,
+        assign: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        input_path: typing.Optional[builtins.str] = None,
+        output_path: typing.Optional[builtins.str] = None,
+        parameters: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        result_path: typing.Optional[builtins.str] = None,
+        result_selector: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    ) -> None:
+        '''Properties for defining a Parallel state that using JSONPath.
+
+        :param comment: A comment describing this state. Default: No comment
+        :param query_language: The name of the query language used by the state. If the state does not contain a ``queryLanguage`` field, then it will use the query language specified in the top-level ``queryLanguage`` field. Default: - JSONPath
+        :param state_name: Optional name for this state. Default: - The construct ID will be used as state name
+        :param assign: Workflow variables to store in this step. Using workflow variables, you can store data in a step and retrieve that data in future steps. Default: - Not assign variables
+        :param input_path: JSONPath expression to select part of the state to be the input to this state. May also be the special value JsonPath.DISCARD, which will cause the effective input to be the empty object {}. Default: $
+        :param output_path: JSONPath expression to select part of the state to be the output to this state. May also be the special value JsonPath.DISCARD, which will cause the effective output to be the empty object {}. Default: $
+        :param parameters: Parameters pass a collection of key-value pairs, either static values or JSONPath expressions that select from the input. Default: No parameters
+        :param result_path: JSONPath expression to indicate where to inject the state's output. May also be the special value JsonPath.DISCARD, which will cause the state's input to become its output. Default: $
+        :param result_selector: The JSON that will replace the state's raw result and become the effective result before ResultPath is applied. You can use ResultSelector to create a payload with values that are static or selected from the state's raw result. Default: - None
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_stepfunctions as stepfunctions
+            
+            # assign: Any
+            # parameters: Any
+            # result_selector: Any
+            
+            parallel_json_path_props = stepfunctions.ParallelJsonPathProps(
+                assign={
+                    "assign_key": assign
+                },
+                comment="comment",
+                input_path="inputPath",
+                output_path="outputPath",
+                parameters={
+                    "parameters_key": parameters
+                },
+                query_language=stepfunctions.QueryLanguage.JSON_PATH,
+                result_path="resultPath",
+                result_selector={
+                    "result_selector_key": result_selector
+                },
+                state_name="stateName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__01751a726904e9d37b08d2e5f3e03603fcb85bd621338876a23594d1ead255c5)
+            check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
+            check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
+            check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
+            check_type(argname="argument assign", value=assign, expected_type=type_hints["assign"])
+            check_type(argname="argument input_path", value=input_path, expected_type=type_hints["input_path"])
+            check_type(argname="argument output_path", value=output_path, expected_type=type_hints["output_path"])
+            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
+            check_type(argname="argument result_path", value=result_path, expected_type=type_hints["result_path"])
+            check_type(argname="argument result_selector", value=result_selector, expected_type=type_hints["result_selector"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if comment is not None:
+            self._values["comment"] = comment
+        if query_language is not None:
+            self._values["query_language"] = query_language
+        if state_name is not None:
+            self._values["state_name"] = state_name
+        if assign is not None:
+            self._values["assign"] = assign
+        if input_path is not None:
+            self._values["input_path"] = input_path
+        if output_path is not None:
+            self._values["output_path"] = output_path
+        if parameters is not None:
+            self._values["parameters"] = parameters
+        if result_path is not None:
+            self._values["result_path"] = result_path
+        if result_selector is not None:
+            self._values["result_selector"] = result_selector
+
+    @builtins.property
+    def comment(self) -> typing.Optional[builtins.str]:
+        '''A comment describing this state.
+
+        :default: No comment
+        '''
+        result = self._values.get("comment")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def query_language(self) -> typing.Optional["QueryLanguage"]:
+        '''The name of the query language used by the state.
+
+        If the state does not contain a ``queryLanguage`` field,
+        then it will use the query language specified in the top-level ``queryLanguage`` field.
+
+        :default: - JSONPath
+        '''
+        result = self._values.get("query_language")
+        return typing.cast(typing.Optional["QueryLanguage"], result)
+
+    @builtins.property
+    def state_name(self) -> typing.Optional[builtins.str]:
+        '''Optional name for this state.
+
+        :default: - The construct ID will be used as state name
+        '''
+        result = self._values.get("state_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def assign(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''Workflow variables to store in this step.
+
+        Using workflow variables, you can store data in a step and retrieve that data in future steps.
+
+        :default: - Not assign variables
+
+        :see: https://docs.aws.amazon.com/step-functions/latest/dg/workflow-variables.html
+        '''
+        result = self._values.get("assign")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
+    @builtins.property
+    def input_path(self) -> typing.Optional[builtins.str]:
+        '''JSONPath expression to select part of the state to be the input to this state.
+
+        May also be the special value JsonPath.DISCARD, which will cause the effective
+        input to be the empty object {}.
+
+        :default: $
+        '''
+        result = self._values.get("input_path")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def output_path(self) -> typing.Optional[builtins.str]:
+        '''JSONPath expression to select part of the state to be the output to this state.
+
+        May also be the special value JsonPath.DISCARD, which will cause the effective
+        output to be the empty object {}.
+
+        :default: $
+        '''
+        result = self._values.get("output_path")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''Parameters pass a collection of key-value pairs, either static values or JSONPath expressions that select from the input.
+
+        :default: No parameters
+
+        :see: https://docs.aws.amazon.com/step-functions/latest/dg/input-output-inputpath-params.html#input-output-parameters
+        '''
+        result = self._values.get("parameters")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
+    @builtins.property
+    def result_path(self) -> typing.Optional[builtins.str]:
+        '''JSONPath expression to indicate where to inject the state's output.
+
+        May also be the special value JsonPath.DISCARD, which will cause the state's
+        input to become its output.
+
+        :default: $
+        '''
+        result = self._values.get("result_path")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def result_selector(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''The JSON that will replace the state's raw result and become the effective result before ResultPath is applied.
+
+        You can use ResultSelector to create a payload with values that are static
+        or selected from the state's raw result.
+
+        :default: - None
+
+        :see: https://docs.aws.amazon.com/step-functions/latest/dg/input-output-inputpath-params.html#input-output-resultselector
+        '''
+        result = self._values.get("result_selector")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ParallelJsonPathProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_stepfunctions.ParallelJsonataProps",
+    jsii_struct_bases=[StateBaseProps, AssignableStateOptions, JsonataCommonOptions],
+    name_mapping={
+        "comment": "comment",
+        "query_language": "queryLanguage",
+        "state_name": "stateName",
+        "assign": "assign",
+        "outputs": "outputs",
+        "arguments": "arguments",
     },
-    "RebaselineChoice": {
-      "Type": "Choice",
-      "Choices": [
-        {
-          "Variable": "$.REBASELINE",
-          "StringEquals": "TRUE",
-          "Next": "PrepBaselineSetsTask"
-        }
-      ],
-      "Default": "ActionChoice"
+)
+class ParallelJsonataProps(
+    StateBaseProps,
+    AssignableStateOptions,
+    JsonataCommonOptions,
+):
+    def __init__(
+        self,
+        *,
+        comment: typing.Optional[builtins.str] = None,
+        query_language: typing.Optional["QueryLanguage"] = None,
+        state_name: typing.Optional[builtins.str] = None,
+        assign: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        outputs: typing.Any = None,
+        arguments: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    ) -> None:
+        '''Properties for defining a Parallel state that using JSONata.
+
+        :param comment: A comment describing this state. Default: No comment
+        :param query_language: The name of the query language used by the state. If the state does not contain a ``queryLanguage`` field, then it will use the query language specified in the top-level ``queryLanguage`` field. Default: - JSONPath
+        :param state_name: Optional name for this state. Default: - The construct ID will be used as state name
+        :param assign: Workflow variables to store in this step. Using workflow variables, you can store data in a step and retrieve that data in future steps. Default: - Not assign variables
+        :param outputs: Used to specify and transform output from the state. When specified, the value overrides the state output default. The output field accepts any JSON value (object, array, string, number, boolean, null). Any string value, including those inside objects or arrays, will be evaluated as JSONata if surrounded by {% %} characters. Output also accepts a JSONata expression directly. Default: - $states.result or $states.errorOutput
+        :param arguments: Parameters pass a collection of key-value pairs, either static values or JSONata expressions that select from the input. Default: No arguments
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_stepfunctions as stepfunctions
+            
+            # arguments_: Any
+            # assign: Any
+            # outputs: Any
+            
+            parallel_jsonata_props = stepfunctions.ParallelJsonataProps(
+                arguments={
+                    "arguments_key": arguments_
+                },
+                assign={
+                    "assign_key": assign
+                },
+                comment="comment",
+                outputs=outputs,
+                query_language=stepfunctions.QueryLanguage.JSON_PATH,
+                state_name="stateName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__86aa09661bd94e980b4d31b02e3e7af40bca543b67d6884d16f31d3671f15bd6)
+            check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
+            check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
+            check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
+            check_type(argname="argument assign", value=assign, expected_type=type_hints["assign"])
+            check_type(argname="argument outputs", value=outputs, expected_type=type_hints["outputs"])
+            check_type(argname="argument arguments", value=arguments, expected_type=type_hints["arguments"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if comment is not None:
+            self._values["comment"] = comment
+        if query_language is not None:
+            self._values["query_language"] = query_language
+        if state_name is not None:
+            self._values["state_name"] = state_name
+        if assign is not None:
+            self._values["assign"] = assign
+        if outputs is not None:
+            self._values["outputs"] = outputs
+        if arguments is not None:
+            self._values["arguments"] = arguments
+
+    @builtins.property
+    def comment(self) -> typing.Optional[builtins.str]:
+        '''A comment describing this state.
+
+        :default: No comment
+        '''
+        result = self._values.get("comment")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def query_language(self) -> typing.Optional["QueryLanguage"]:
+        '''The name of the query language used by the state.
+
+        If the state does not contain a ``queryLanguage`` field,
+        then it will use the query language specified in the top-level ``queryLanguage`` field.
+
+        :default: - JSONPath
+        '''
+        result = self._values.get("query_language")
+        return typing.cast(typing.Optional["QueryLanguage"], result)
+
+    @builtins.property
+    def state_name(self) -> typing.Optional[builtins.str]:
+        '''Optional name for this state.
+
+        :default: - The construct ID will be used as state name
+        '''
+        result = self._values.get("state_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def assign(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''Workflow variables to store in this step.
+
+        Using workflow variables, you can store data in a step and retrieve that data in future steps.
+
+        :default: - Not assign variables
+
+        :see: https://docs.aws.amazon.com/step-functions/latest/dg/workflow-variables.html
+        '''
+        result = self._values.get("assign")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
+    @builtins.property
+    def outputs(self) -> typing.Any:
+        '''Used to specify and transform output from the state.
+
+        When specified, the value overrides the state output default.
+        The output field accepts any JSON value (object, array, string, number, boolean, null).
+        Any string value, including those inside objects or arrays,
+        will be evaluated as JSONata if surrounded by {% %} characters.
+        Output also accepts a JSONata expression directly.
+
+        :default: - $states.result or $states.errorOutput
+
+        :see: https://docs.aws.amazon.com/step-functions/latest/dg/concepts-input-output-filtering.html
+        '''
+        result = self._values.get("outputs")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def arguments(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''Parameters pass a collection of key-value pairs, either static values or JSONata expressions that select from the input.
+
+        :default: No arguments
+
+        :see: https://docs.aws.amazon.com/step-functions/latest/dg/transforming-data.html
+        '''
+        result = self._values.get("arguments")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ParallelJsonataProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_stepfunctions.ParallelProps",
+    jsii_struct_bases=[
+        StateBaseProps,
+        AssignableStateOptions,
+        JsonPathCommonOptions,
+        JsonataCommonOptions,
+    ],
+    name_mapping={
+        "comment": "comment",
+        "query_language": "queryLanguage",
+        "state_name": "stateName",
+        "assign": "assign",
+        "input_path": "inputPath",
+        "output_path": "outputPath",
+        "outputs": "outputs",
+        "arguments": "arguments",
+        "parameters": "parameters",
+        "result_path": "resultPath",
+        "result_selector": "resultSelector",
     },
-    "ActionChoice": {
-      "Type": "Choice",
-      "Choices": [
-        {
-          "Variable": "$.ACTION",
-          "StringEquals": "deploy",
-          "Next": "ParallelMonitorScheduler"
-        }
-      ],
-      "Default": "PreTransformMonitorChecker"
-    },
-    "ParallelBaselineJobs": {
-      "Type": "Parallel",
-      "Next": "ActionChoice",
-      "Branches": [
-        {
-          "StartAt": "DQBaselineJobTask",
-          "States": {
-            "DQBaselineJobTask": {
-              "End": true,
-              "Type": "Task",
-              "TimeoutSeconds": 600,
-              "ResultPath": "$.DQBaselineJobTask",
-              "ResultSelector": {
-                "PROCESSING_JOB_ARN.$": "$.Payload.PROCESSING_JOB_ARN"
-              },
-              "Resource": "arn:aws:states:::lambda:invoke",
-              "Parameters": {
-                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-dq-baseline-fn",
-                "Payload": {
-                  "name": "abalone-dq-baseline-job",
-                  "role_arn": "arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
-                  "monitor_dir": "s3://omm-test-bucket/pipelines/abalone/data-quality",
-                  "instance_type.$": "$.MONITOR_INSTANCE_TYPE",
-                  "image_uri": "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
-                  "instance_count": 1,
-                  "volume_size_in_gb": 20,
-                  "max_runtime_in_seconds": 1800,
-                  "dataset_format": "{\"Csv\": {\"Header\": true}}"
-                }
-              }
-            }
-          }
-        },
-        {
-          "StartAt": "MQBaselineJobTask",
-          "States": {
-            "MQBaselineJobTask": {
-              "End": true,
-              "Type": "Task",
-              "TimeoutSeconds": 600,
-              "ResultPath": "$.MQBaselineJobTask",
-              "ResultSelector": {
-                "PROCESSING_JOB_ARN.$": "$.Payload.PROCESSING_JOB_ARN"
-              },
-              "Resource": "arn:aws:states:::lambda:invoke",
-              "Parameters": {
-                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-mq-baseline-fn",
-                "Payload": {
-                  "name": "abalone-mq-baseline-job",
-                  "role_arn": "arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
-                  "monitor_dir": "s3://omm-test-bucket/pipelines/abalone/model-quality",
-                  "inference_attribute": "rings_prediction",
-                  "ground_truth_attribute": "rings",
-                  "problem_type": "Regression",
-                  "probability_attribute": "",
-                  "probability_threshold_attribute": "",
-                  "instance_type.$": "$.MONITOR_INSTANCE_TYPE",
-                  "positive_label": "",
-                  "image_uri": "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
-                  "instance_count": 1,
-                  "volume_size_in_gb": 20,
-                  "max_runtime_in_seconds": 1800,
-                  "dataset_format": "{\"Csv\": {\"Header\": true}}"
-                }
-              }
-            }
-          }
-        },
-        {
-          "StartAt": "MBBaselineJobTask",
-          "States": {
-            "MBBaselineJobTask": {
-              "End": true,
-              "Type": "Task",
-              "TimeoutSeconds": 600,
-              "ResultPath": "$.MBBaselineJobTask",
-              "ResultSelector": {
-                "PROCESSING_JOB_ARN.$": "$.Payload.PROCESSING_JOB_ARN"
-              },
-              "Resource": "arn:aws:states:::lambda:invoke",
-              "Parameters": {
-                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-mb-baseline-fn",
-                "Payload": {
-                  "name": "abalone-mb-baseline-job",
-                  "role_arn": "arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
-                  "monitor_dir": "s3://omm-test-bucket/pipelines/abalone/model-bias",
-                  "inference_attribute": "rings_prediction",
-                  "ground_truth_attribute": "rings",
-                  "problem_type": "Regression",
-                  "probability_attribute": "",
-                  "probability_threshold_attribute": "",
-                  "instance_type.$": "$.MONITOR_INSTANCE_TYPE",
-                  "positive_label": "",
-                  "exclude_features_attribute": "",
-                  "image_uri": "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
-                  "instance_count": 1,
-                  "volume_size_in_gb": 20,
-                  "max_runtime_in_seconds": 1800,
-                  "dataset_format": "{\"Csv\": {\"Header\": true}}"
-                }
-              }
-            }
-          }
-        },
-        {
-          "StartAt": "MEBaselineJobTask",
-          "States": {
-            "MEBaselineJobTask": {
-              "End": true,
-              "Type": "Task",
-              "TimeoutSeconds": 600,
-              "ResultPath": "$.MEBaselineJobTask",
-              "ResultSelector": {
-                "PROCESSING_JOB_ARN.$": "$.Payload.PROCESSING_JOB_ARN"
-              },
-              "Resource": "arn:aws:states:::lambda:invoke",
-              "Parameters": {
-                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-me-baseline-fn",
-                "Payload": {
-                  "name": "abalone-me-baseline-job",
-                  "role_arn": "arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
-                  "monitor_dir": "s3://omm-test-bucket/pipelines/abalone/model-explainability",
-                  "inference_attribute": "rings_prediction",
-                  "probability_attribute": "",
-                  "instance_type.$": "$.MONITOR_INSTANCE_TYPE",
-                  "exclude_features_attribute": "",
-                  "image_uri": "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
-                  "instance_count": 1,
-                  "volume_size_in_gb": 20,
-                  "max_runtime_in_seconds": 1800,
-                  "dataset_format": "{\"Csv\": {\"Header\": true}}"
-                }
-              }
-            }
-          }
-        }
-      ]
-    },
-    "MakeBaselineSetsTask": {
-      "Next": "ParallelBaselineJobs",
-      "Type": "Task",
-      "TimeoutSeconds": 600,
-      "ResultPath": "$.MakeBaselineSetsTask",
-      "ResultSelector": {},
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-make-baseline-sets",
-        "Payload": {
-          "baseline_headered_file.$": "$.PrepBaselineSetsTask.BASELINE_HEADERED_FILE",
-          "baseline_pred_file.$": "$.GetBaselinePredsTask.BASELINE_PRED_FILE",
-          "dq_monitor_dir": "s3://omm-test-bucket/pipelines/abalone/data-quality",
-          "db_monitor_dir": "s3://omm-test-bucket/pipelines/abalone/data-bias",
-          "mq_monitor_dir": "s3://omm-test-bucket/pipelines/abalone/model-quality",
-          "mb_monitor_dir": "s3://omm-test-bucket/pipelines/abalone/model-bias",
-          "me_monitor_dir": "s3://omm-test-bucket/pipelines/abalone/model-explainability",
-          "target_name": "rings",
-          "prediction_name": "rings_prediction",
-          "baseline_X_file.$": "$.PrepBaselineSetsTask.BASELINE_X_FILE",
-          "target_type": "float"
-        }
-      }
-    },
-    "GetBaselinePredsTask": {
-      "Next": "MakeBaselineSetsTask",
-      "Type": "Task",
-      "TimeoutSeconds": 600,
-      "ResultPath": "$.GetBaselinePredsTask",
-      "ResultSelector": {
-        "BASELINE_PRED_FILE.$": "$.Payload.BASELINE_PRED_FILE"
-      },
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-get-baseline-preds",
-        "Payload": {
-          "transform_out_dir.$": "$.BaselineTransformTask.OUTPUT_PATH",
-          "baseline_X_filename.$": "$.PrepBaselineSetsTask.BASELINE_X_FILENAME",
-          "baseline_dir": "s3://omm-test-bucket/pipelines/abalone/baseline"
-        }
-      }
-    },
-    "BaselineTransformTask": {
-      "Next": "GetBaselinePredsTask",
-      "Type": "Task",
-      "TimeoutSeconds": 600,
-      "ResultPath": "$.BaselineTransformTask",
-      "ResultSelector": {
-        "TRANSFORM_JOB_ARM.$": "$.Payload.TRANSFORM_JOB_ARM",
-        "JOB_NAME.$": "$.Payload.JOB_NAME",
-        "OUTPUT_PATH.$": "$.Payload.OUTPUT_PATH",
-        "STATUS.$": "$.Payload.STATUS"
-      },
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-baseline-transform",
-        "Payload": {
-          "model_name.$": "$.GetOrCreateModelTask.MODEL_NAME",
-          "s3_data_source.$": "$.PrepBaselineSetsTask.BASELINE_X_FILE",
-          "transform_out_dir": "s3://omm-test-bucket/pipelines/abalone/baseline",
-          "instance_type.$": "$.TRANSFORM_INSTANCE_TYPE"
-        }
-      }
-    },
-    "PrepBaselineSetsTask": {
-      "Next": "BaselineTransformTask",
-      "Type": "Task",
-      "TimeoutSeconds": 600,
-      "ResultPath": "$.PrepBaselineSetsTask",
-      "ResultSelector": {
-        "BASELINE_HEADERED_FILE.$": "$.Payload.BASELINE_HEADERED_FILE",
-        "BASELINE_X_FILE.$": "$.Payload.BASELINE_X_FILE",
-        "BASELINE_X_FILENAME.$": "$.Payload.BASELINE_X_FILENAME"
-      },
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-prep-baseline-sets",
-        "Payload": {
-          "baseline_file.$": "$.BASELINE_FILE",
-          "target_name": "rings",
-          "target_type": "float",
-          "baseline_dir": "s3://omm-test-bucket/pipelines/abalone/baseline",
-          "columns.$": "$.BASELINE_COLS"
-        }
-      }
-    },
-    "PreTransformMonitorChecker": {
-      "Type": "Parallel",
-      "Next": "BatchTransformTask",
-      "Branches": [
-        {
-          "StartAt": "CheckMeMonChoice",
-          "States": {
-            "CheckMeMonChoice": {
-              "Type": "Choice",
-              "Choices": [
-                {
-                  "Variable": "$.ENABLE_MODEL_EXPLAINABILITY_CHECK",
-                  "StringEquals": "TRUE",
-                  "Next": "CheckMETask"
-                }
-              ]
-            },
-            "CheckMETask": {
-              "End": true,
-              "Type": "Task",
-              "TimeoutSeconds": 600,
-              "ResultPath": "$.CheckMETask",
-              "ResultSelector": {},
-              "Resource": "arn:aws:states:::lambda:invoke",
-              "Parameters": {
-                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-check-me",
-                "Payload": {}
-              }
-            }
-          }
-        },
-        {
-          "StartAt": "CheckDqMonChoice",
-          "States": {
-            "CheckDqMonChoice": {
-              "Type": "Choice",
-              "Choices": [
-                {
-                  "Variable": "$.ENABLE_DATA_QUALITY_CHECK",
-                  "StringEquals": "TRUE",
-                  "Next": "CheckDQTask"
-                }
-              ]
-            },
-            "CheckDQTask": {
-              "End": true,
-              "Type": "Task",
-              "TimeoutSeconds": 600,
-              "ResultPath": "$.CheckDQTask",
-              "ResultSelector": {},
-              "Resource": "arn:aws:states:::lambda:invoke",
-              "Parameters": {
-                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-check-dq",
-                "Payload": {}
-              }
-            }
-          }
-        }
-      ]
-    },
-    "BatchTransformTask": {
-      "Next": "PostTransformMonitorChecker",
-      "Type": "Task",
-      "TimeoutSeconds": 600,
-      "ResultPath": "$.BatchTransformTask",
-      "ResultSelector": {
-        "TRANSFORM_JOB_ARM.$": "$.Payload.TRANSFORM_JOB_ARM",
-        "JOB_NAME.$": "$.Payload.JOB_NAME",
-        "OUTPUT_PATH.$": "$.Payload.OUTPUT_PATH",
-        "STATUS.$": "$.Payload.STATUS"
-      },
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-batch-transform",
-        "Payload": {
-          "model_name.$": "$.GetOrCreateModelTask.MODEL_NAME",
-          "s3_data_source.$": "$.BATCH_INPUT_DIR",
-          "transform_out_dir": "s3://omm-test-bucket/pipelines/abalone/batch-out",
-          "instance_type.$": "$.TRANSFORM_INSTANCE_TYPE"
-        }
-      }
-    },
-    "PostTransformMonitorChecker": {
-      "Type": "Parallel",
-      "Next": "End",
-      "Branches": [
-        {
-          "StartAt": "CheckMqMonChoice",
-          "States": {
-            "CheckMqMonChoice": {
-              "Type": "Choice",
-              "Choices": [
-                {
-                  "Variable": "$.ENABLE_MODEL_QUALITY_CHECK",
-                  "StringEquals": "TRUE",
-                  "Next": "CheckMQTask"
-                }
-              ]
-            },
-            "CheckMQTask": {
-              "End": true,
-              "Type": "Task",
-              "TimeoutSeconds": 600,
-              "ResultPath": "$.CheckMQTask",
-              "ResultSelector": {},
-              "Resource": "arn:aws:states:::lambda:invoke",
-              "Parameters": {
-                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-check-mq",
-                "Payload": {}
-              }
-            }
-          }
-        },
-        {
-          "StartAt": "CheckMbMonChoice",
-          "States": {
-            "CheckMbMonChoice": {
-              "Type": "Choice",
-              "Choices": [
-                {
-                  "Variable": "$.ENABLE_MODEL_BIAS_CHECK",
-                  "StringEquals": "TRUE",
-                  "Next": "CheckMBTask"
-                }
-              ]
-            },
-            "CheckMBTask": {
-              "End": true,
-              "Type": "Task",
-              "TimeoutSeconds": 600,
-              "ResultPath": "$.CheckMBTask",
-              "ResultSelector": {},
-              "Resource": "arn:aws:states:::lambda:invoke",
-              "Parameters": {
-                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-check-mb",
-                "Payload": {}
-              }
-            }
-          }
-        }
-      ]
-    },
-    "End": {
-      "Type": "Pass",
-      "End": true
-    },
-    "ParallelMonitorScheduler": {
-      "Type": "Parallel",
-      "Next": "End",
-      "Branches": [
-        {
-          "StartAt": "ScheduleDqMonChoice",
-          "States": {
-            "ScheduleDqMonChoice": {
-              "Type": "Choice",
-              "Choices": [
-                {
-                  "Variable": "$.ENABLE_DATA_QUALITY_MONITORING",
-                  "StringEquals": "TRUE",
-                  "Next": "ScheduleDQTask"
-                }
-              ]
-            },
-            "ScheduleDQTask": {
-              "End": true,
-              "Type": "Task",
-              "TimeoutSeconds": 600,
-              "ResultPath": "$.ScheduleDQTask",
-              "ResultSelector": {},
-              "Resource": "arn:aws:states:::lambda:invoke",
-              "Parameters": {
-                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-schedule-dq",
-                "Payload": {
-                  "name": "dq-mon",
-                  "endpoint_name.$": "$.DeployEndpointTask.ENDPOINT_NAME",
-                  "data_capture_dir": "s3://omm-test-bucket/pipelines/abalone/capture",
-                  "monitor_role": "arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
-                  "deploy_type": "batch",
-                  "monitor_dir": "s3://omm-test-bucket/pipelines/abalone/data-quality",
-                  "image_uri": "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
-                  "instance_count": 1,
-                  "instance_type.$": "$.MONITOR_INSTANCE_TYPE",
-                  "volume_size_in_gb": 20,
-                  "max_runtime_in_seconds": 1800,
-                  "dataset_format": "{\"Csv\": {\"Header\": true}}",
-                  "schedule_expression.$": "$.MONITOR_SCHEDULE_EXPRESSION",
-                  "data_analysis_start_time.$": "$.MONITOR_ANALYSIS_START_TIME",
-                  "data_analysis_end_time.$": "$.MONITOR_ANALYSIS_END_TIME"
-                }
-              }
-            }
-          }
-        },
-        {
-          "StartAt": "ScheduleMqMonChoice",
-          "States": {
-            "ScheduleMqMonChoice": {
-              "Type": "Choice",
-              "Choices": [
-                {
-                  "Variable": "$.ENABLE_MODEL_QUALITY_MONITORING",
-                  "StringEquals": "TRUE",
-                  "Next": "ScheduleMQTask"
-                }
-              ]
-            },
-            "ScheduleMQTask": {
-              "End": true,
-              "Type": "Task",
-              "TimeoutSeconds": 600,
-              "ResultPath": "$.ScheduleMQTask",
-              "ResultSelector": {},
-              "Resource": "arn:aws:states:::lambda:invoke",
-              "Parameters": {
-                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-schedule-mq",
-                "Payload": {
-                  "name": "mq-mon",
-                  "endpoint_name.$": "$.DeployEndpointTask.ENDPOINT_NAME",
-                  "data_capture_dir": "s3://omm-test-bucket/pipelines/abalone/capture",
-                  "monitor_role": "arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
-                  "deploy_type": "batch",
-                  "problem_type": "Regression",
-                  "prediction_name": "rings_prediction",
-                  "monitor_dir": "s3://omm-test-bucket/pipelines/abalone/model-quality",
-                  "ground_truth_dir.$": "$.GROUND_TRUTH_DIR",
-                  "image_uri": "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
-                  "instance_count": 1,
-                  "instance_type.$": "$.MONITOR_INSTANCE_TYPE",
-                  "volume_size_in_gb": 20,
-                  "max_runtime_in_seconds": 1800,
-                  "dataset_format": "{\"Csv\": {\"Header\": true}}",
-                  "schedule_expression.$": "$.MONITOR_SCHEDULE_EXPRESSION",
-                  "data_analysis_start_time.$": "$.MONITOR_ANALYSIS_START_TIME",
-                  "data_analysis_end_time.$": "$.MONITOR_ANALYSIS_END_TIME"
-                }
-              }
-            }
-          }
-        },
-        {
-          "StartAt": "ScheduleMeMonChoice",
-          "States": {
-            "ScheduleMeMonChoice": {
-              "Type": "Choice",
-              "Choices": [
-                {
-                  "Variable": "$.ENABLE_MODEL_EXPLAINABILITY_MONITORING",
-                  "StringEquals": "TRUE",
-                  "Next": "ScheduleMETask"
-                }
-              ]
-            },
-            "ScheduleMETask": {
-              "End": true,
-              "Type": "Task",
-              "TimeoutSeconds": 600,
-              "ResultPath": "$.ScheduleMETask",
-              "ResultSelector": {},
-              "Resource": "arn:aws:states:::lambda:invoke",
-              "Parameters": {
-                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-schedule-me",
-                "Payload": {
-                  "name": "me-mon",
-                  "endpoint_name.$": "$.DeployEndpointTask.ENDPOINT_NAME",
-                  "data_capture_dir": "s3://omm-test-bucket/pipelines/abalone/capture",
-                  "monitor_role": "arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
-                  "deploy_type": "batch",
-                  "monitor_dir": "s3://omm-test-bucket/pipelines/abalone/model-explainability",
-                  "image_uri": "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
-                  "instance_count": 1,
-                  "instance_type.$": "$.MONITOR_INSTANCE_TYPE",
-                  "volume_size_in_gb": 20,
-                  "max_runtime_in_seconds": 1800,
-                  "dataset_format": "{\"Csv\": {\"Header\": true}}",
-                  "schedule_expression.$": "$.MONITOR_SCHEDULE_EXPRESSION",
-                  "data_analysis_start_time.$": "$.MONITOR_ANALYSIS_START_TIME",
-                  "data_analysis_end_time.$": "$.MONITOR_ANALYSIS_END_TIME"
-                }
-              }
-            }
-          }
-        },
-        {
-          "StartAt": "ScheduleMbMonChoice",
-          "States": {
-            "ScheduleMbMonChoice": {
-              "Type": "Choice",
-              "Choices": [
-                {
-                  "Variable": "$.ENABLE_MODEL_BIAS_MONITORING",
-                  "StringEquals": "TRUE",
-                  "Next": "ScheduleMBTask"
-                }
-              ]
-            },
-            "ScheduleMBTask": {
-              "End": true,
-              "Type": "Task",
-              "TimeoutSeconds": 600,
-              "ResultPath": "$.ScheduleMBTask",
-              "ResultSelector": {},
-              "Resource": "arn:aws:states:::lambda:invoke",
-              "Parameters": {
-                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-schedule-mb",
-                "Payload": {
-                  "name": "mb-mon",
-                  "endpoint_name.$": "$.DeployEndpointTask.ENDPOINT_NAME",
-                  "data_capture_dir": "s3://omm-test-bucket/pipelines/abalone/capture",
-                  "monitor_role": "arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
-                  "deploy_type": "batch",
-                  "monitor_dir": "s3://omm-test-bucket/pipelines/abalone/model-bias",
-                  "ground_truth_dir.$": "$.GROUND_TRUTH_DIR",
-                  "image_uri": "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
-                  "instance_count": 1,
-                  "instance_type.$": "$.MONITOR_INSTANCE_TYPE",
-                  "volume_size_in_gb": 20,
-                  "max_runtime_in_seconds": 1800,
-                  "dataset_format": "{\"Csv\": {\"Header\": true}}",
-                  "schedule_expression.$": "$.MONITOR_SCHEDULE_EXPRESSION",
-                  "data_analysis_start_time.$": "$.MONITOR_ANALYSIS_START_TIME",
-                  "data_analysis_end_time.$": "$.MONITOR_ANALYSIS_END_TIME"
-                }
-              }
-            }
-          }
-        }
-      ]
-    }
-  }
-}
+)
+class ParallelProps(
+    StateBaseProps,
+    AssignableStateOptions,
+    JsonPathCommonOptions,
+    JsonataCommonOptions,
+):
+    def __init__(
+        self,
+        *,
+        comment: typing.Optional[builtins.str] = None,
+        query_language: typing.Optional["QueryLanguage"] = None,
+        state_name: typing.Optional[builtins.str] = None,
+        assign: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        input_path: typing.Optional[builtins.str] = None,
+        output_path: typing.Optional[builtins.str] = None,
+        outputs: typing.Any = None,
+        arguments: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        parameters: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        result_path: typing.Optional[builtins.str] = None,
+        result_selector: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    ) -> None:
+        '''Properties for defining a Parallel state.
+
+        :param comment: A comment describing this state. Default: No comment
+        :param query_language: The name of the query language used by the state. If the state does not contain a ``queryLanguage`` field, then it will use the query language specified in the top-level ``queryLanguage`` field. Default: - JSONPath
+        :param state_name: Optional name for this state. Default: - The construct ID will be used as state name
+        :param assign: Workflow variables to store in this step. Using workflow variables, you can store data in a step and retrieve that data in future steps. Default: - Not assign variables
+        :param input_path: JSONPath expression to select part of the state to be the input to this state. May also be the special value JsonPath.DISCARD, which will cause the effective input to be the empty object {}. Default: $
+        :param output_path: JSONPath expression to select part of the state to be the output to this state. May also be the special value JsonPath.DISCARD, which will cause the effective output to be the empty object {}. Default: $
+        :param outputs: Used to specify and transform output from the state. When specified, the value overrides the state output default. The output field accepts any JSON value (object, array, string, number, boolean, null). Any string value, including those inside objects or arrays, will be evaluated as JSONata if surrounded by {% %} characters. Output also accepts a JSONata expression directly. Default: - $states.result or $states.errorOutput
+        :param arguments: Parameters pass a collection of key-value pairs, either static values or JSONata expressions that select from the input. Default: No arguments
+        :param parameters: Parameters pass a collection of key-value pairs, either static values or JSONPath expressions that select from the input. Default: No parameters
+        :param result_path: JSONPath expression to indicate where to inject the state's output. May also be the special value JsonPath.DISCARD, which will cause the state's input to become its output. Default: $
+        :param result_selector: The JSON that will replace the state's raw result and become the effective result before ResultPath is applied. You can use ResultSelector to create a payload with values that are static or selected from the state's raw result. Default: - None
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_stepfunctions as stepfunctions
+            
+            # arguments_: Any
+            # assign: Any
+            # outputs: Any
+            # parameters: Any
+            # result_selector: Any
+            
+            parallel_props = stepfunctions.ParallelProps(
+                arguments={
+                    "arguments_key": arguments_
+                },
+                assign={
+                    "assign_key": assign
+                },
+                comment="comment",
+                input_path="inputPath",
+                output_path="outputPath",
+                outputs=outputs,
+                parameters={
+                    "parameters_key": parameters
+                },
+                query_language=stepfunctions.QueryLanguage.JSON_PATH,
+                result_path="resultPath",
+                result_selector={
+                    "result_selector_key": result_selector
+                },
+                state_name="stateName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7a04fcca9cbcddc34201ab96bfd6e4be7793eed6937bb07ccd5c1a2dc45a6484)
+            check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
+            check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
+            check_type(argname="argument state_name", value=state_name, expected_type=type_hints["state_name"])
+            check_type(argname="argument assign", value=assign, expected_type=type_hints["assign"])
+            check_type(argname="argument input_path", value=input_path, expected_type=type_hints["input_path"])
+            check_type(argname="argument output_path", value=output_path, expected_type=type_hints["output_path"])
+            check_type(argname="argument outputs", value=outputs, expected_type=type_hints["outputs"])
+            check_type(argname="argument arguments", value=arguments, expected_type=type_hints["arguments"])
+            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
+            check_type(argname="argument result_path", value=result_path, expected_type=type_hints["result_path"])
+            check_type(argname="argument result_selector", value=result_selector, expected_type=type_hints["result_selector"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if comment is not None:
+            self._values["comment"] = comment
+        if query_language is not None:
+            self._values["query_language"] = query_language
+        if state_name is not None:
+            self._values["state_name"] = state_name
+        if assign is not None:
+            self._values["assign"] = assign
+        if input_path is not None:
+            self._values["input_path"] = input_path
+        if output_path is not None:
+            self._values["output_path"] = output_path
+        if outputs is not None:
+            self._values["outputs"] = outputs
+        if arguments is not None:
+            self._values["arguments"] = arguments
+        if parameters is not None:
+            self._values["parameters"] = parameters
+        if result_path is not None:
+            self._values["result_path"] = result_path
+        if result_selector is not None:
+            self._values["result_selector"] = result_selector
+
+    @builtins.property
+    def comment(self) -> typing.Optional[builtins.str]:
+        '''A comment describing this state.
+
+        :default: No comment
+        '''
+        result = self._values.get("comment")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def query_language(self) -> typing.Optional["QueryLanguage"]:
+        '''The name of the query language used by the state.
+
+        If the state does not contain a ``queryLanguage`` field,
+        then it will use the query language specified in the top-level ``queryLanguage`` field.
+
+        :default: - JSONPath
+        '''
+        result = self._values.get("query_language")
+        return typing.cast(typing.Optional["QueryLanguage"], result)
+
+    @builtins.property
+    def state_name(self) -> typing.Optional[builtins.str]:
+        '''Optional name for this state.
+
+        :default: - The construct ID will be used as state name
+        '''
+        result = self._values.get("state_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def assign(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''Workflow variables to store in this step.
+
+        Using workflow variables, you can store data in a step and retrieve that data in future steps.
+
+        :default: - Not assign variables
+
+        :see: https://docs.aws.amazon.com/step-functions/latest/dg/workflow-variables.html
+        '''
+        result = self._values.get("assign")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
+    @builtins.property
+    def input_path(self) -> typing.Optional[builtins.str]:
+        '''JSONPath expression to select part of the state to be the input to this state.
+
+        May also be the special value JsonPath.DISCARD, which will cause the effective
+        input to be the empty object {}.
+
+        :default: $
+        '''
+        result = self._values.get("input_path")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def output_path(self) -> typing.Optional[builtins.str]:
+        '''JSONPath expression to select part of the state to be the output to this state.
+
+        May also be the special value JsonPath.DISCARD, which will cause the effective
+        output to be the empty object {}.
+
+        :default: $
+        '''
+        result = self._values.get("output_path")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def outputs(self) -> typing.Any:
+        '''Used to specify and transform output from the state.
+
+        When specified, the value overrides the state output default.
+        The output field accepts any JSON value (object, array, string, number, boolean, null).
+        Any string value, including those inside objects or arrays,
+        will be evaluated as JSONata if surrounded by {% %} characters.
+        Output also accepts a JSONata expression directly.
+
+        :default: - $states.result or $states.errorOutput
+
+        :see: https://docs.aws.amazon.com/step-functions/latest/dg/concepts-input-output-filtering.html
+        '''
+        result = self._values.get("outputs")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def arguments(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''Parameters pass a collection of key-value pairs, either static values or JSONata expressions that select from the input.
+
+        :default: No arguments
+
+        :see: https://docs.aws.amazon.com/step-functions/latest/dg/transforming-data.html
+        '''
+        result = self._values.get("arguments")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
+    @builtins.property
+    def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''Parameters pass a collection of key-value pairs, either static values or JSONPath expressions that select from the input.
+
+        :default: No parameters
+
+        :see: https://docs.aws.amazon.com/step-functions/latest/dg/input-output-inputpath-params.html#input-output-parameters
+        '''
+        result = self._values.get("parameters")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
+    @builtins.property
+    def result_path(self) -> typing.Optional[builtins.str]:
+        '''JSONPath expression to indicate where to inject the state's output.
+
+        May also be the special value JsonPath.DISCARD, which will cause the state's
+        input to become its output.
+
+        :default: $
+        '''
+        result = self._values.get("result_path")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def result_selector(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''The JSON that will replace the state's raw result and become the effective result before ResultPath is applied.
+
+        You can use ResultSelector to create a payload with values that are static
+        or selected from the state's raw result.
+
+        :default: - None
+
+        :see: https://docs.aws.amazon.com/step-functions/latest/dg/input-output-inputpath-params.html#input-output-resultselector
+        '''
+        result = self._values.get("result_selector")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ParallelProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )

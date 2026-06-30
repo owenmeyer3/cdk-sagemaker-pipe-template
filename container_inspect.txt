@@ -9986,3 +9986,10 @@ WGET_OPTS=-nv --timeout=60 --tries=3 --waitretry=15 --retry-connrefused
 PIP_DISABLE_PIP_VERSION_CHECK=1
 DMLC_INTERFACE=eth0
 _=/usr/bin/env
+
+
+SageMakerCreateEndpoint
+SageMakerCreateModel
+SageMakerCreateTrainingJob
+SageMakerCreateTransformJob
+SageMakerUpdateEndpoint

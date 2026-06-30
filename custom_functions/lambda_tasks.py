@@ -1,37 +1,73 @@
 import os, pathlib, json
 from aws_cdk import (
     aws_logs as logs,
+    aws_lambda as _lambda,
     aws_stepfunctions as stepfunctions,
-    Duration
+    aws_stepfunctions_tasks as tasks,
+    aws_ecr as ecr,
+    Duration,
+    RemovalPolicy
 )
 from custom_constructs.CNetwork import CNetwork
 from custom_constructs.CLambda import CLambdaFunction
 from custom_constructs.CECS import CFargateTaskDefinition
 from custom_constructs.utils import get_local_project_root
+from constructs import Construct
 
-# def sm_transform_fn_task(scope, construct_id, function_name, model_name_lkp, instance_type_lkp, s3_data_source=None, s3_data_source_lkp=None, transform_out_dir=None, transform_out_dir_lkp=None):
-#     lambda_function = CLambdaFunction(
-#         scope, construct_id,
-#         use_docker=False,
-#         function_name=function_name,
-#         code_path='code/sagemaker',
-#         handler='sagemaker.transform_job_handler',
-#         role=scope.lambda_execution_role_arn,
-#         log_group_name=f"/lambda/{function_name}",
-#         log_retention=logs.RetentionDays.ONE_MONTH,
-#         runtime='python3.11',
-#         timeout=Duration.minutes(15) # max 15 min
-#     )
-#     task = lambda_function.generate_task(
-#         payload={
-#             'model_name': stepfunctions.JsonPath.string_at(model_name_lkp),
-#             's3_data_source': stepfunctions.JsonPath.string_at(s3_data_source_lkp) if s3_data_source_lkp else s3_data_source,
-#             'transform_out_dir': stepfunctions.JsonPath.string_at(transform_out_dir_lkp) if transform_out_dir_lkp else transform_out_dir,
-#             'instance_type': stepfunctions.JsonPath.string_at(instance_type_lkp)
-#         },
-#         outputs=['TRANSFORM_JOB_ARM', 'JOB_NAME', 'OUTPUT_PATH', 'STATUS']
-#     )
-#     return [task, lambda_function]
+class ELambdaFunction(Construct):
+    def __init__(
+        self, 
+        scope: Construct, 
+        construct_id: str,
+        function_name:str,
+        repo:ecr.Repository,
+        cmd:list=[],
+        outputs=[],
+        payload={},
+        log_group_name='',
+        log_retention='',
+        task_timeout=stepfunctions.Timeout.duration(Duration.minutes(10))
+    ):
+
+        super().__init__(scope, construct_id)
+
+        repo=None
+        task_timeout=stepfunctions.Timeout.duration(Duration.minutes(10))
+        self.task_log_group = logs.LogGroup(self, f"{self.node.id}Log", log_group_name=log_group_name, log_retention=log_retention, removal_policy=RemovalPolicy.DESTROY)
+
+        self.fn = _lambda.DockerImageFunction(
+            self, f'{construct_id}Lambda',
+            function_name,
+            code=_lambda.DockerImageCode.from_ecr(
+                repository=repo,
+                tag_or_digest='latest',
+                cmd=cmd
+            ),
+            timeout=Duration.minutes(15),
+            memory_size=512
+        )
+
+        print(f"outputs: {outputs}")
+
+        result_selection={}
+        for o in outputs:
+            result_selection[f'{o}.$'] = f'$.Payload.{o}'
+        
+        print(f"result_selection: {result_selection}")
+
+        print(payload)
+
+        self.task = tasks.LambdaInvoke(
+            self, 
+            f"{construct_id}Task", 
+            lambda_function=self.fn, 
+            payload=stepfunctions.TaskInput.from_object(payload), 
+            task_timeout=task_timeout, 
+            retry_on_service_exceptions=False,
+            result_selector=result_selection,
+            result_path=f"$.{self.node.id}Task",
+            log_group=self.task_log_group
+        )
 
 def parse_instances_fn_task(scope, construct_id, function_name, monitor_instance_lkp, transform_instance_lkp, endpoint_instance_lkp):
     lambda_function = CLambdaFunction(
@@ -542,206 +578,142 @@ def run_dq_bl_job_fn_task(
     scope, 
     construct_id, 
     function_name, 
-    job_name, 
+    repo,
     monitor_role, 
     monitor_dir, 
-    monitor_instance_type_lkp, 
-    image_uri='156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer', 
-    instance_count=1, 
-    volume_size_in_gb=20, 
-    max_runtime_in_seconds=1800, 
-    dataset_format={'csv': {'header': True}}
 ):
-    lambda_function = CLambdaFunction(
-        scope, construct_id,
-        use_docker=False,
-        function_name=function_name,
-        code_path='code/baseline_jobs/',
-        handler='baseline_jobs.run_dq_bl_job_handler',
-        role=scope.lambda_execution_role_arn,
-        log_group_name=f"/lambda/{function_name}",
-        log_retention=logs.RetentionDays.ONE_MONTH,
-        runtime='python3.11',
-        timeout=Duration.minutes(5)
-    )
-    task = lambda_function.generate_task(
-        payload={
-            'name':job_name,
-            'role_arn':monitor_role.role_arn,
-            'monitor_dir':monitor_dir,
-            'instance_type':stepfunctions.JsonPath.string_at(monitor_instance_type_lkp),
-            'image_uri':image_uri,
-            'instance_count':instance_count,
-            'volume_size_in_gb':volume_size_in_gb,
-            'max_runtime_in_seconds':max_runtime_in_seconds,
-            'dataset_format':json.dumps(dataset_format),
+    payload={
+        'role':monitor_role.role_arn,
+        'baseline_dataset':monitor_dir+'/baseline.csv',
+        'output_s3_uri':monitor_dir+'/info',
+    }
 
-        },
-        outputs=['PROCESSING_JOB_ARN']
-        # result_selector={}
+    e = ELambdaFunction(
+        scope, 
+        construct_id, 
+        function_name, 
+        repo, 
+        cmd=['baseline_lambda.main.create_dq_baseline_handler'],
+        outputs=[], 
+        payload=payload, 
+        log_group_name='/lambda/baseline-mb-job', 
+        log_retention=logs.RetentionDays.ONE_MONTH,
+        outputs=[]
     )
-    return [task, lambda_function]
+
+    return [e.task, e.baseline_dq_lambda]
 
 
 def run_mq_bl_job_fn_task(
     scope, 
     construct_id, 
     function_name, 
-    job_name, 
+    repo,
     monitor_role, 
     monitor_dir,
     inference_attribute,
     ground_truth_attribute,
     problem_type,
-    monitor_instance_type_lkp,
-    probability_attribute='', # Classification Only,
-    probability_threshold_attribute='',  # Classification Only
-    positive_label='',  # Classification Only
-    image_uri='156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer', 
-    instance_count=1, 
-    volume_size_in_gb=20, 
-    max_runtime_in_seconds=1800, 
-    dataset_format={'csv': {'header': True}}
+    probability_attribute=None, # Classification Only,
+    probability_threshold_attribute=None,  # Classification Only
 ):
-    lambda_function = CLambdaFunction(
-        scope, construct_id,
-        use_docker=False,
-        function_name=function_name,
-        code_path='code/baseline_jobs/',
-        handler='baseline_jobs.run_mq_bl_job_handler',
-        role=scope.lambda_execution_role_arn,
-        log_group_name=f"/lambda/{function_name}",
-        log_retention=logs.RetentionDays.ONE_MONTH,
-        runtime='python3.11',
-        timeout=Duration.minutes(5)
-    )
-    task = lambda_function.generate_task(
-        payload={
-            'name':job_name,
-            'role_arn':monitor_role.role_arn,
-            'monitor_dir':monitor_dir,
-            'inference_attribute':inference_attribute,
-            'ground_truth_attribute':ground_truth_attribute,
-            'problem_type':problem_type,
-            'probability_attribute':probability_attribute,
-            'probability_threshold_attribute':probability_threshold_attribute,
-            'instance_type':stepfunctions.JsonPath.string_at(monitor_instance_type_lkp),
-            'positive_label':positive_label,
-            'image_uri':image_uri,
-            'instance_count':instance_count,
-            'volume_size_in_gb':volume_size_in_gb,
-            'max_runtime_in_seconds':max_runtime_in_seconds,
-            'dataset_format':json.dumps(dataset_format),
-        },
-        outputs=['PROCESSING_JOB_ARN']
-        # result_selector={}
-    )
-    return [task, lambda_function]
+    payload={
+        'role':monitor_role.role_arn,
+        'baseline_dataset':monitor_dir+'/baseline.csv',
+        'output_s3_uri':monitor_dir+'/info',
+        'problem_type':problem_type,
+        'inference_attribute':inference_attribute,
+        'probability_attribute':probability_attribute,
+        'ground_truth_attribute':ground_truth_attribute,
+        'probability_threshold_attribute':probability_threshold_attribute
+    }
 
+    e = ELambdaFunction(
+        scope, 
+        construct_id, 
+        function_name, 
+        repo, 
+        cmd=['baseline_lambda.main.create_mq_baseline_handler'],
+        outputs=[], 
+        payload=payload, 
+        log_group_name='/lambda/baseline-mb-job', 
+        log_retention=logs.RetentionDays.ONE_MONTH,
+        outputs=[]
+    )
+
+    return [e.task, e.baseline_dq_lambda]
 
 def run_mb_bl_job_fn_task(
     scope, 
     construct_id, 
     function_name, 
-    job_name, 
-    monitor_role, 
-    monitor_dir, 
-    monitor_instance_type_lkp, 
-    inference_attribute,
-    ground_truth_attribute, 
-    problem_type, 
-    probability_attribute='', # Classification Only
-    probability_threshold_attribute='',  # Classification Only
-    positive_label='',  # Classification Only
-    exclude_features_attribute='', 
-    image_uri='156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer', 
-    instance_count=1, 
-    volume_size_in_gb=20, 
-    max_runtime_in_seconds=1800, 
-    dataset_format={'csv': {'header': True}}
+    model_name_lkp,
+    repo,
+    monitor_role,
+    monitor_dir,
+    label,
+    baseline_cols_lkp
 ):
-    lambda_function = CLambdaFunction(
-        scope, construct_id,
-        use_docker=False,
-        function_name=function_name,
-        code_path='code/baseline_jobs/',
-        handler='baseline_jobs.run_mb_bl_job_handler',
-        role=scope.lambda_execution_role_arn,
-        log_group_name=f"/lambda/{function_name}",
+    payload={
+        'role':monitor_role.role_arn,
+        'model_name':stepfunctions.JsonPath.string_at(model_name_lkp),
+        'baseline_dataset':monitor_dir+'/baseline.csv',
+        'output_s3_uri':monitor_dir+'/info',
+        'label':label,
+        'bias_config':{'label_values_or_threshold':[1], 'function':"sex_M", 'facet_values_or_threshold':[0.5]},
+        'model_predicted_label_config':{'probability_threshold':0.8}
+    }
+
+    e = ELambdaFunction(
+        scope, 
+        construct_id, 
+        function_name, 
+        repo, 
+        cmd=['baseline_lambda.main.create_mb_baseline_handler'],
+        outputs=[], 
+        payload=payload, 
+        log_group_name='/lambda/baseline-mb-job', 
         log_retention=logs.RetentionDays.ONE_MONTH,
-        runtime='python3.11',
-        timeout=Duration.minutes(5)
+        outputs=[]
     )
-    task = lambda_function.generate_task(
-        payload={
-            'name':job_name,
-            'role_arn':monitor_role.role_arn,
-            'monitor_dir':monitor_dir,
-            'inference_attribute':inference_attribute,
-            'ground_truth_attribute':ground_truth_attribute,
-            'problem_type':problem_type,
-            'probability_attribute':probability_attribute,
-            'probability_threshold_attribute':probability_threshold_attribute,
-            'instance_type':stepfunctions.JsonPath.string_at(monitor_instance_type_lkp),
-            'positive_label':positive_label,
-            'exclude_features_attribute':exclude_features_attribute,
-            'image_uri':image_uri,
-            'instance_count':instance_count,
-            'volume_size_in_gb':volume_size_in_gb,
-            'max_runtime_in_seconds':max_runtime_in_seconds,
-            'dataset_format':json.dumps(dataset_format),
-        },
-        outputs=['PROCESSING_JOB_ARN']
-        # result_selector={}
-    )
-    return [task, lambda_function]
+
+    return [e.task, e.baseline_dq_lambda]
 
 
 def run_me_bl_job_fn_task(
     scope, 
     construct_id, 
-    function_name, 
-    job_name, 
+    function_name,
+    repo,
+    model_name_lkp,
     monitor_role, 
-    monitor_dir, 
-    monitor_instance_type_lkp, 
-    inference_attribute, 
-    probability_attribute='', # Classification Only
-    exclude_features_attribute='', 
-    image_uri='156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer', 
-    instance_count=1, 
-    volume_size_in_gb=20, 
-    max_runtime_in_seconds=1800, 
-    dataset_format={'csv': {'header': True}}
-    ):
-    lambda_function = CLambdaFunction(
-        scope, construct_id,
-        use_docker=False,
-        function_name=function_name,
-        code_path='code/baseline_jobs/',
-        handler='baseline_jobs.run_me_bl_job_handler',
-        role=scope.lambda_execution_role_arn,
-        log_group_name=f"/lambda/{function_name}",
+    monitor_dir,
+    label,
+    baseline_cols_lkp,
+    test_X_dataset_lkp
+):
+    
+    payload={
+        'role':monitor_role.role_arn,
+        'model_name':stepfunctions.JsonPath.string_at(model_name_lkp),
+        'baseline_dataset':monitor_dir+'/baseline.csv',
+        'output_s3_uri':monitor_dir+'/info',
+        'label':label,
+        'baseline_cols':stepfunctions.JsonPath.string_at(baseline_cols_lkp),
+        'test_X_dataset':stepfunctions.JsonPath.string_at(test_X_dataset_lkp),
+    }
+
+    e = ELambdaFunction(
+        scope, 
+        construct_id, 
+        function_name, 
+        repo, 
+        cmd=['baseline_lambda.main.create_dq_baseline_handler'],
+        outputs=[], 
+        payload=payload, 
+        log_group_name='/lambda/baseline-me-job', 
         log_retention=logs.RetentionDays.ONE_MONTH,
-        runtime='python3.11',
-        timeout=Duration.minutes(5)
+        outputs=[]
     )
-    task = lambda_function.generate_task(
-        payload={
-            'name':job_name,
-            'role_arn':monitor_role.role_arn,
-            'monitor_dir':monitor_dir,
-            'inference_attribute':inference_attribute,
-            'probability_attribute':probability_attribute,
-            'instance_type':stepfunctions.JsonPath.string_at(monitor_instance_type_lkp),
-            'exclude_features_attribute':exclude_features_attribute,
-            'image_uri':image_uri,
-            'instance_count':instance_count,
-            'volume_size_in_gb':volume_size_in_gb,
-            'max_runtime_in_seconds':max_runtime_in_seconds,
-            'dataset_format':json.dumps(dataset_format),
-        },
-        outputs=['PROCESSING_JOB_ARN']
-        # result_selector={}
-    )
-    return [task, lambda_function]
+
+    return [e.task, e.baseline_dq_lambda]

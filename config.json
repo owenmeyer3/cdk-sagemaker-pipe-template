@@ -5,6 +5,18 @@
 		"TARGET_NAME":"rings",
 		"TARGET_TYPE":"float",
 		"PROBLEM_TYPE":"Regression",
+		"FEATURE_NAMES":[
+			"length",
+			"diameter",
+			"height",
+			"whole_weight",
+			"shucked_weight",
+			"viscera_weight",
+			"shell_weight",
+			"sex_F",
+			"sex_I",
+			"sex_M"
+		],
 		"PREDICTION_NAME":"rings_prediction",
 		"GROUND_TRUTH_LABEL":"rings",
 		"MODEL_PACKAGE_GROUP_NAME":"abalone"
