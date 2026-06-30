@@ -1,0 +1,602 @@
+{
+  "StartAt": "Start",
+  "States": {
+    "Start": {
+      "Type": "Pass",
+      "Next": "GetOrCreateModelTask"
+    },
+    "GetOrCreateModelTask": {
+      "Next": "RebaselineChoice",
+      "Type": "Task",
+      "TimeoutSeconds": 600,
+      "ResultPath": "$.GetOrCreateModelTask",
+      "ResultSelector": {
+        "MODEL_NAME.$": "$.Payload.MODEL_NAME",
+        "MODEL_PACKAGE_ARN.$": "$.Payload.MODEL_PACKAGE_ARN"
+      },
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-get-or-create-model",
+        "Payload": {
+          "model_package_group_name": "abalone",
+          "model_package_version.$": "$.MODEL_PACKAGE_VERSION",
+          "create_model_role": "arn:aws:iam::088461143167:role/SageMakerExecutionRole-1"
+        }
+      }
+    },
+    "RebaselineChoice": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.REBASELINE",
+          "StringEquals": "TRUE",
+          "Next": "PrepBaselineSetsTask"
+        }
+      ],
+      "Default": "ActionChoice"
+    },
+    "ActionChoice": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.ACTION",
+          "StringEquals": "deploy",
+          "Next": "ParallelMonitorScheduler"
+        }
+      ],
+      "Default": "PreTransformMonitorChecker"
+    },
+    "ParallelBaselineJobs": {
+      "Type": "Parallel",
+      "Next": "ActionChoice",
+      "Branches": [
+        {
+          "StartAt": "DQBaselineJobTask",
+          "States": {
+            "DQBaselineJobTask": {
+              "End": true,
+              "Type": "Task",
+              "TimeoutSeconds": 600,
+              "ResultPath": "$.DQBaselineJobTask",
+              "ResultSelector": {
+                "PROCESSING_JOB_ARN.$": "$.Payload.PROCESSING_JOB_ARN"
+              },
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-dq-baseline-fn",
+                "Payload": {
+                  "name": "abalone-dq-baseline-job",
+                  "role_arn": "arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
+                  "monitor_dir": "s3://omm-test-bucket/pipelines/abalone/data-quality",
+                  "instance_type.$": "$.MONITOR_INSTANCE_TYPE",
+                  "image_uri": "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
+                  "instance_count": 1,
+                  "volume_size_in_gb": 20,
+                  "max_runtime_in_seconds": 1800,
+                  "dataset_format": "{\"Csv\": {\"Header\": true}}"
+                }
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "MQBaselineJobTask",
+          "States": {
+            "MQBaselineJobTask": {
+              "End": true,
+              "Type": "Task",
+              "TimeoutSeconds": 600,
+              "ResultPath": "$.MQBaselineJobTask",
+              "ResultSelector": {
+                "PROCESSING_JOB_ARN.$": "$.Payload.PROCESSING_JOB_ARN"
+              },
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-mq-baseline-fn",
+                "Payload": {
+                  "name": "abalone-mq-baseline-job",
+                  "role_arn": "arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
+                  "monitor_dir": "s3://omm-test-bucket/pipelines/abalone/model-quality",
+                  "inference_attribute": "rings_prediction",
+                  "ground_truth_attribute": "rings",
+                  "problem_type": "Regression",
+                  "probability_attribute": "",
+                  "probability_threshold_attribute": "",
+                  "instance_type.$": "$.MONITOR_INSTANCE_TYPE",
+                  "positive_label": "",
+                  "image_uri": "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
+                  "instance_count": 1,
+                  "volume_size_in_gb": 20,
+                  "max_runtime_in_seconds": 1800,
+                  "dataset_format": "{\"Csv\": {\"Header\": true}}"
+                }
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "MBBaselineJobTask",
+          "States": {
+            "MBBaselineJobTask": {
+              "End": true,
+              "Type": "Task",
+              "TimeoutSeconds": 600,
+              "ResultPath": "$.MBBaselineJobTask",
+              "ResultSelector": {
+                "PROCESSING_JOB_ARN.$": "$.Payload.PROCESSING_JOB_ARN"
+              },
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-mb-baseline-fn",
+                "Payload": {
+                  "name": "abalone-mb-baseline-job",
+                  "role_arn": "arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
+                  "monitor_dir": "s3://omm-test-bucket/pipelines/abalone/model-bias",
+                  "inference_attribute": "rings_prediction",
+                  "ground_truth_attribute": "rings",
+                  "problem_type": "Regression",
+                  "probability_attribute": "",
+                  "probability_threshold_attribute": "",
+                  "instance_type.$": "$.MONITOR_INSTANCE_TYPE",
+                  "positive_label": "",
+                  "exclude_features_attribute": "",
+                  "image_uri": "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
+                  "instance_count": 1,
+                  "volume_size_in_gb": 20,
+                  "max_runtime_in_seconds": 1800,
+                  "dataset_format": "{\"Csv\": {\"Header\": true}}"
+                }
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "MEBaselineJobTask",
+          "States": {
+            "MEBaselineJobTask": {
+              "End": true,
+              "Type": "Task",
+              "TimeoutSeconds": 600,
+              "ResultPath": "$.MEBaselineJobTask",
+              "ResultSelector": {
+                "PROCESSING_JOB_ARN.$": "$.Payload.PROCESSING_JOB_ARN"
+              },
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-me-baseline-fn",
+                "Payload": {
+                  "name": "abalone-me-baseline-job",
+                  "role_arn": "arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
+                  "monitor_dir": "s3://omm-test-bucket/pipelines/abalone/model-explainability",
+                  "inference_attribute": "rings_prediction",
+                  "probability_attribute": "",
+                  "instance_type.$": "$.MONITOR_INSTANCE_TYPE",
+                  "exclude_features_attribute": "",
+                  "image_uri": "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
+                  "instance_count": 1,
+                  "volume_size_in_gb": 20,
+                  "max_runtime_in_seconds": 1800,
+                  "dataset_format": "{\"Csv\": {\"Header\": true}}"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "MakeBaselineSetsTask": {
+      "Next": "ParallelBaselineJobs",
+      "Type": "Task",
+      "TimeoutSeconds": 600,
+      "ResultPath": "$.MakeBaselineSetsTask",
+      "ResultSelector": {},
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-make-baseline-sets",
+        "Payload": {
+          "baseline_headered_file.$": "$.PrepBaselineSetsTask.BASELINE_HEADERED_FILE",
+          "baseline_pred_file.$": "$.GetBaselinePredsTask.BASELINE_PRED_FILE",
+          "dq_monitor_dir": "s3://omm-test-bucket/pipelines/abalone/data-quality",
+          "db_monitor_dir": "s3://omm-test-bucket/pipelines/abalone/data-bias",
+          "mq_monitor_dir": "s3://omm-test-bucket/pipelines/abalone/model-quality",
+          "mb_monitor_dir": "s3://omm-test-bucket/pipelines/abalone/model-bias",
+          "me_monitor_dir": "s3://omm-test-bucket/pipelines/abalone/model-explainability",
+          "target_name": "rings",
+          "prediction_name": "rings_prediction",
+          "baseline_X_file.$": "$.PrepBaselineSetsTask.BASELINE_X_FILE",
+          "target_type": "float"
+        }
+      }
+    },
+    "GetBaselinePredsTask": {
+      "Next": "MakeBaselineSetsTask",
+      "Type": "Task",
+      "TimeoutSeconds": 600,
+      "ResultPath": "$.GetBaselinePredsTask",
+      "ResultSelector": {
+        "BASELINE_PRED_FILE.$": "$.Payload.BASELINE_PRED_FILE"
+      },
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-get-baseline-preds",
+        "Payload": {
+          "transform_out_dir.$": "$.BaselineTransformTask.OUTPUT_PATH",
+          "baseline_X_filename.$": "$.PrepBaselineSetsTask.BASELINE_X_FILENAME",
+          "baseline_dir": "s3://omm-test-bucket/pipelines/abalone/baseline"
+        }
+      }
+    },
+    "BaselineTransformTask": {
+      "Next": "GetBaselinePredsTask",
+      "Type": "Task",
+      "TimeoutSeconds": 600,
+      "ResultPath": "$.BaselineTransformTask",
+      "ResultSelector": {
+        "TRANSFORM_JOB_ARM.$": "$.Payload.TRANSFORM_JOB_ARM",
+        "JOB_NAME.$": "$.Payload.JOB_NAME",
+        "OUTPUT_PATH.$": "$.Payload.OUTPUT_PATH",
+        "STATUS.$": "$.Payload.STATUS"
+      },
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-baseline-transform",
+        "Payload": {
+          "model_name.$": "$.GetOrCreateModelTask.MODEL_NAME",
+          "s3_data_source.$": "$.PrepBaselineSetsTask.BASELINE_X_FILE",
+          "transform_out_dir": "s3://omm-test-bucket/pipelines/abalone/baseline",
+          "instance_type.$": "$.TRANSFORM_INSTANCE_TYPE"
+        }
+      }
+    },
+    "PrepBaselineSetsTask": {
+      "Next": "BaselineTransformTask",
+      "Type": "Task",
+      "TimeoutSeconds": 600,
+      "ResultPath": "$.PrepBaselineSetsTask",
+      "ResultSelector": {
+        "BASELINE_HEADERED_FILE.$": "$.Payload.BASELINE_HEADERED_FILE",
+        "BASELINE_X_FILE.$": "$.Payload.BASELINE_X_FILE",
+        "BASELINE_X_FILENAME.$": "$.Payload.BASELINE_X_FILENAME"
+      },
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-prep-baseline-sets",
+        "Payload": {
+          "baseline_file.$": "$.BASELINE_FILE",
+          "target_name": "rings",
+          "target_type": "float",
+          "baseline_dir": "s3://omm-test-bucket/pipelines/abalone/baseline",
+          "columns.$": "$.BASELINE_COLS"
+        }
+      }
+    },
+    "PreTransformMonitorChecker": {
+      "Type": "Parallel",
+      "Next": "BatchTransformTask",
+      "Branches": [
+        {
+          "StartAt": "CheckMeMonChoice",
+          "States": {
+            "CheckMeMonChoice": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.ENABLE_MODEL_EXPLAINABILITY_CHECK",
+                  "StringEquals": "TRUE",
+                  "Next": "CheckMETask"
+                }
+              ]
+            },
+            "CheckMETask": {
+              "End": true,
+              "Type": "Task",
+              "TimeoutSeconds": 600,
+              "ResultPath": "$.CheckMETask",
+              "ResultSelector": {},
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-check-me",
+                "Payload": {}
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "CheckDqMonChoice",
+          "States": {
+            "CheckDqMonChoice": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.ENABLE_DATA_QUALITY_CHECK",
+                  "StringEquals": "TRUE",
+                  "Next": "CheckDQTask"
+                }
+              ]
+            },
+            "CheckDQTask": {
+              "End": true,
+              "Type": "Task",
+              "TimeoutSeconds": 600,
+              "ResultPath": "$.CheckDQTask",
+              "ResultSelector": {},
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-check-dq",
+                "Payload": {}
+              }
+            }
+          }
+        }
+      ]
+    },
+    "BatchTransformTask": {
+      "Next": "PostTransformMonitorChecker",
+      "Type": "Task",
+      "TimeoutSeconds": 600,
+      "ResultPath": "$.BatchTransformTask",
+      "ResultSelector": {
+        "TRANSFORM_JOB_ARM.$": "$.Payload.TRANSFORM_JOB_ARM",
+        "JOB_NAME.$": "$.Payload.JOB_NAME",
+        "OUTPUT_PATH.$": "$.Payload.OUTPUT_PATH",
+        "STATUS.$": "$.Payload.STATUS"
+      },
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-batch-transform",
+        "Payload": {
+          "model_name.$": "$.GetOrCreateModelTask.MODEL_NAME",
+          "s3_data_source.$": "$.BATCH_INPUT_DIR",
+          "transform_out_dir": "s3://omm-test-bucket/pipelines/abalone/batch-out",
+          "instance_type.$": "$.TRANSFORM_INSTANCE_TYPE"
+        }
+      }
+    },
+    "PostTransformMonitorChecker": {
+      "Type": "Parallel",
+      "Next": "End",
+      "Branches": [
+        {
+          "StartAt": "CheckMqMonChoice",
+          "States": {
+            "CheckMqMonChoice": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.ENABLE_MODEL_QUALITY_CHECK",
+                  "StringEquals": "TRUE",
+                  "Next": "CheckMQTask"
+                }
+              ]
+            },
+            "CheckMQTask": {
+              "End": true,
+              "Type": "Task",
+              "TimeoutSeconds": 600,
+              "ResultPath": "$.CheckMQTask",
+              "ResultSelector": {},
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-check-mq",
+                "Payload": {}
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "CheckMbMonChoice",
+          "States": {
+            "CheckMbMonChoice": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.ENABLE_MODEL_BIAS_CHECK",
+                  "StringEquals": "TRUE",
+                  "Next": "CheckMBTask"
+                }
+              ]
+            },
+            "CheckMBTask": {
+              "End": true,
+              "Type": "Task",
+              "TimeoutSeconds": 600,
+              "ResultPath": "$.CheckMBTask",
+              "ResultSelector": {},
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-check-mb",
+                "Payload": {}
+              }
+            }
+          }
+        }
+      ]
+    },
+    "End": {
+      "Type": "Pass",
+      "End": true
+    },
+    "ParallelMonitorScheduler": {
+      "Type": "Parallel",
+      "Next": "End",
+      "Branches": [
+        {
+          "StartAt": "ScheduleDqMonChoice",
+          "States": {
+            "ScheduleDqMonChoice": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.ENABLE_DATA_QUALITY_MONITORING",
+                  "StringEquals": "TRUE",
+                  "Next": "ScheduleDQTask"
+                }
+              ]
+            },
+            "ScheduleDQTask": {
+              "End": true,
+              "Type": "Task",
+              "TimeoutSeconds": 600,
+              "ResultPath": "$.ScheduleDQTask",
+              "ResultSelector": {},
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-schedule-dq",
+                "Payload": {
+                  "name": "dq-mon",
+                  "endpoint_name.$": "$.DeployEndpointTask.ENDPOINT_NAME",
+                  "data_capture_dir": "s3://omm-test-bucket/pipelines/abalone/capture",
+                  "monitor_role": "arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
+                  "deploy_type": "batch",
+                  "monitor_dir": "s3://omm-test-bucket/pipelines/abalone/data-quality",
+                  "image_uri": "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
+                  "instance_count": 1,
+                  "instance_type.$": "$.MONITOR_INSTANCE_TYPE",
+                  "volume_size_in_gb": 20,
+                  "max_runtime_in_seconds": 1800,
+                  "dataset_format": "{\"Csv\": {\"Header\": true}}",
+                  "schedule_expression.$": "$.MONITOR_SCHEDULE_EXPRESSION",
+                  "data_analysis_start_time.$": "$.MONITOR_ANALYSIS_START_TIME",
+                  "data_analysis_end_time.$": "$.MONITOR_ANALYSIS_END_TIME"
+                }
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "ScheduleMqMonChoice",
+          "States": {
+            "ScheduleMqMonChoice": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.ENABLE_MODEL_QUALITY_MONITORING",
+                  "StringEquals": "TRUE",
+                  "Next": "ScheduleMQTask"
+                }
+              ]
+            },
+            "ScheduleMQTask": {
+              "End": true,
+              "Type": "Task",
+              "TimeoutSeconds": 600,
+              "ResultPath": "$.ScheduleMQTask",
+              "ResultSelector": {},
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-schedule-mq",
+                "Payload": {
+                  "name": "mq-mon",
+                  "endpoint_name.$": "$.DeployEndpointTask.ENDPOINT_NAME",
+                  "data_capture_dir": "s3://omm-test-bucket/pipelines/abalone/capture",
+                  "monitor_role": "arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
+                  "deploy_type": "batch",
+                  "problem_type": "Regression",
+                  "prediction_name": "rings_prediction",
+                  "monitor_dir": "s3://omm-test-bucket/pipelines/abalone/model-quality",
+                  "ground_truth_dir.$": "$.GROUND_TRUTH_DIR",
+                  "image_uri": "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
+                  "instance_count": 1,
+                  "instance_type.$": "$.MONITOR_INSTANCE_TYPE",
+                  "volume_size_in_gb": 20,
+                  "max_runtime_in_seconds": 1800,
+                  "dataset_format": "{\"Csv\": {\"Header\": true}}",
+                  "schedule_expression.$": "$.MONITOR_SCHEDULE_EXPRESSION",
+                  "data_analysis_start_time.$": "$.MONITOR_ANALYSIS_START_TIME",
+                  "data_analysis_end_time.$": "$.MONITOR_ANALYSIS_END_TIME"
+                }
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "ScheduleMeMonChoice",
+          "States": {
+            "ScheduleMeMonChoice": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.ENABLE_MODEL_EXPLAINABILITY_MONITORING",
+                  "StringEquals": "TRUE",
+                  "Next": "ScheduleMETask"
+                }
+              ]
+            },
+            "ScheduleMETask": {
+              "End": true,
+              "Type": "Task",
+              "TimeoutSeconds": 600,
+              "ResultPath": "$.ScheduleMETask",
+              "ResultSelector": {},
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-schedule-me",
+                "Payload": {
+                  "name": "me-mon",
+                  "endpoint_name.$": "$.DeployEndpointTask.ENDPOINT_NAME",
+                  "data_capture_dir": "s3://omm-test-bucket/pipelines/abalone/capture",
+                  "monitor_role": "arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
+                  "deploy_type": "batch",
+                  "monitor_dir": "s3://omm-test-bucket/pipelines/abalone/model-explainability",
+                  "image_uri": "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
+                  "instance_count": 1,
+                  "instance_type.$": "$.MONITOR_INSTANCE_TYPE",
+                  "volume_size_in_gb": 20,
+                  "max_runtime_in_seconds": 1800,
+                  "dataset_format": "{\"Csv\": {\"Header\": true}}",
+                  "schedule_expression.$": "$.MONITOR_SCHEDULE_EXPRESSION",
+                  "data_analysis_start_time.$": "$.MONITOR_ANALYSIS_START_TIME",
+                  "data_analysis_end_time.$": "$.MONITOR_ANALYSIS_END_TIME"
+                }
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "ScheduleMbMonChoice",
+          "States": {
+            "ScheduleMbMonChoice": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.ENABLE_MODEL_BIAS_MONITORING",
+                  "StringEquals": "TRUE",
+                  "Next": "ScheduleMBTask"
+                }
+              ]
+            },
+            "ScheduleMBTask": {
+              "End": true,
+              "Type": "Task",
+              "TimeoutSeconds": 600,
+              "ResultPath": "$.ScheduleMBTask",
+              "ResultSelector": {},
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "arn:aws:lambda:us-east-1:088461143167:function:abalone-schedule-mb",
+                "Payload": {
+                  "name": "mb-mon",
+                  "endpoint_name.$": "$.DeployEndpointTask.ENDPOINT_NAME",
+                  "data_capture_dir": "s3://omm-test-bucket/pipelines/abalone/capture",
+                  "monitor_role": "arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
+                  "deploy_type": "batch",
+                  "monitor_dir": "s3://omm-test-bucket/pipelines/abalone/model-bias",
+                  "ground_truth_dir.$": "$.GROUND_TRUTH_DIR",
+                  "image_uri": "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
+                  "instance_count": 1,
+                  "instance_type.$": "$.MONITOR_INSTANCE_TYPE",
+                  "volume_size_in_gb": 20,
+                  "max_runtime_in_seconds": 1800,
+                  "dataset_format": "{\"Csv\": {\"Header\": true}}",
+                  "schedule_expression.$": "$.MONITOR_SCHEDULE_EXPRESSION",
+                  "data_analysis_start_time.$": "$.MONITOR_ANALYSIS_START_TIME",
+                  "data_analysis_end_time.$": "$.MONITOR_ANALYSIS_END_TIME"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
