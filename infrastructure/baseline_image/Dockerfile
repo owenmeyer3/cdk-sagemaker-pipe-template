@@ -11,7 +11,10 @@ FROM public.ecr.aws/lambda/python:3.12
 # sudo docker push 088461143167.dkr.ecr.us-east-1.amazonaws.com/baseline-image:latest
 
 # update function
-# aws lambda update-function-code --function-name BaselineLambda --image-uri 088461143167.dkr.ecr.us-east-1.amazonaws.com/baseline-lambda:latest
+# aws lambda update-function-code --function-name abalone-mb-baseline-fn --image-uri 088461143167.dkr.ecr.us-east-1.amazonaws.com/baseline-image:latest
+# aws lambda update-function-code --function-name abalone-dq-baseline-fn --image-uri 088461143167.dkr.ecr.us-east-1.amazonaws.com/baseline-image:latest
+# aws lambda update-function-code --function-name abalone-mq-baseline-fn --image-uri 088461143167.dkr.ecr.us-east-1.amazonaws.com/baseline-image:latest
+# aws lambda update-function-code --function-name abalone-me-baseline-fn --image-uri 088461143167.dkr.ecr.us-east-1.amazonaws.com/baseline-image:latest
 
 WORKDIR /var/task
 
@@ -20,4 +23,5 @@ COPY code/baseline_lambda/ ./baseline_lambda/
 
 COPY infrastructure/baseline_image/requirements.txt .
 
-RUN pip install -r requirements.txt
+RUN pip install sagemaker --no-deps \
+    && pip install -r requirements.txt

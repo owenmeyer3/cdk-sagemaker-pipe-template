@@ -14,9 +14,10 @@ from custom_constructs.utils import get_local_project_root
 def get_transform_task(
     scope, 
     construct_id, 
-    job_name, 
+    job_name,
     model_name_lkp, 
-    instance_type_lkp, 
+    execution_id_lkp,
+    instance_type_lkp,
     s3_data_source=None, 
     s3_data_source_lkp=None, 
     transform_out_dir=None, 
@@ -27,13 +28,12 @@ def get_transform_task(
     content_type='text/csv',
     split_type='Line'
 ):
-    transform_job_name = f"{job_name}-{datetime.datetime.now().strftime('%Y-%m-%d-H-%M-%S')}"
     create_transform_job_step = tasks.CallAwsService(
         scope, construct_id,
         service='sagemaker',
         action='createTransformJob',
         parameters={
-            'TransformJobName': transform_job_name,
+            'TransformJobName': stepfunctions.JsonPath.format(f'{job_name}-{{}}', stepfunctions.JsonPath.string_at(execution_id_lkp)),
             'ModelName': stepfunctions.JsonPath.string_at(model_name_lkp),
             'ModelClientConfig': {
                 'InvocationsMaxRetries': max_retries,
@@ -69,7 +69,7 @@ def get_transform_task(
         f"{create_transform_job_step.id}PollStatus",
         service='sagemaker',
         action='describeTransformJob',
-        parameters={ 'TransformJobName': transform_job_name },
+        parameters={ 'TransformJobName': stepfunctions.JsonPath.format(f'{job_name}-{{}}', stepfunctions.JsonPath.string_at(execution_id_lkp)) },
         iam_resources=['*'],
         result_path=f"$.{create_transform_job_step.id}PollStatusTask",
     )
@@ -102,318 +102,3 @@ def get_transform_task(
         end_step,
         out_dir_lkp
     ]
-
-def get_dq_bl_task(
-    scope, 
-    construct_id,
-    job_name,
-    baseline_job_role,
-    monitor_dir,
-    instance_type_lkp,
-    image_uri="156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
-    dataset_format={'csv': {'header': True}},
-    instance_count=1,
-    volume_size=20,
-    max_runtime=1800
-
-):
-    analysis_type='DATA_QUALITY'
-    environment = {
-        'dataset_source': '/opt/ml/processing/sm_input',
-        'output_path': '/opt/ml/processing/sm_output',
-        'dataset_format': json.dumps(dataset_format),
-        'analysis_type': analysis_type,
-        'publish_cloudwatch_metrics': 'Disabled'
-    }
-
-    return tasks.CallAwsService(
-        scope, 
-        construct_id,
-        service='sagemaker',
-        action='createProcessingJob',
-        parameters={
-            'ProcessingJobName': f"{job_name}-{datetime.datetime.now().strftime('%Y-%m-%d-H-%M-%S')}",
-            'ProcessingResources': {
-                'ClusterConfig': {
-                    'InstanceCount': instance_count,
-                    'InstanceType': stepfunctions.JsonPath.string_at(instance_type_lkp),
-                    'VolumeSizeInGB': volume_size
-                }
-            },
-            'AppSpecification': {
-                'ImageUri': image_uri
-            },
-            'Environment': environment,
-            'ProcessingInputs':[{
-                'InputName': 'input',
-                'S3Input': {
-                    'S3Uri': monitor_dir+'/baseline.csv',
-                    'LocalPath': '/opt/ml/processing/sm_input',
-                    'S3DataType': 'S3Prefix',
-                    'S3InputMode': 'File'
-                }
-            }],
-            'ProcessingOutputConfig':{
-                'Outputs': [{
-                    'OutputName': 'output',
-                    'S3Output': {
-                        'S3Uri': f'{monitor_dir}/info',
-                        'LocalPath': '/opt/ml/processing/sm_output',
-                        'S3UploadMode': 'EndOfJob'
-                    }
-                }]
-            },
-            'RoleArn': baseline_job_role.role_arn,
-            'StoppingCondition': {
-                'MaxRuntimeInSeconds': max_runtime
-            }
-        },
-        result_path=f"$.{construct_id}Task",
-        iam_resources=['*'],
-        integration_pattern=stepfunctions.IntegrationPattern.REQUEST_RESPONSE  
-    )
-
-def get_mq_bl_task(
-    scope, 
-    construct_id,
-    job_name,
-    baseline_job_role,
-    monitor_dir,
-    instance_type_lkp,
-    problem_type,
-    inference_attribute,
-    ground_truth_attribute,
-    probability_attribute=None,
-    probability_threshold_attribute=None,
-    positive_label=None,
-    image_uri="156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
-    dataset_format={'csv': {'header': True}},
-    instance_count=1,
-    volume_size=20,
-    max_runtime=1800
-
-):
-    analysis_type='MODEL_QUALITY'
-    environment = {
-        'dataset_source': '/opt/ml/processing/sm_input',
-        'output_path': '/opt/ml/processing/sm_output',
-        'dataset_format': json.dumps(dataset_format),
-        'analysis_type': analysis_type,
-        'problem_type': problem_type,
-        'inference_attribute': inference_attribute,
-        'ground_truth_attribute': ground_truth_attribute,
-        'publish_cloudwatch_metrics': 'Disabled'
-    }
-
-    if probability_attribute: environment['probability_attribute'] = probability_attribute
-    if probability_threshold_attribute: environment['probability_threshold_attribute'] = probability_threshold_attribute
-    if positive_label: environment['positive_label'] = positive_label
-
-    return tasks.CallAwsService(
-        scope, 
-        construct_id,
-        service='sagemaker',
-        action='createProcessingJob',
-        parameters={
-            'ProcessingJobName': f"{job_name}-{datetime.datetime.now().strftime('%Y-%m-%d-H-%M-%S')}",
-            'ProcessingResources': {
-                'ClusterConfig': {
-                    'InstanceCount': instance_count,
-                    'InstanceType': stepfunctions.JsonPath.string_at(instance_type_lkp),
-                    'VolumeSizeInGB': volume_size
-                }
-            },
-            'AppSpecification': {
-                'ImageUri': image_uri
-            },
-            'Environment': environment,
-            'ProcessingInputs':[{
-                'InputName': 'input',
-                'S3Input': {
-                    'S3Uri': monitor_dir+'/baseline.csv',
-                    'LocalPath': '/opt/ml/processing/sm_input',
-                    'S3DataType': 'S3Prefix',
-                    'S3InputMode': 'File'
-                }
-            }],
-            'ProcessingOutputConfig':{
-                'Outputs': [{
-                    'OutputName': 'output',
-                    'S3Output': {
-                        'S3Uri': f'{monitor_dir}/info',
-                        'LocalPath': '/opt/ml/processing/sm_output',
-                        'S3UploadMode': 'EndOfJob'
-                    }
-                }]
-            },
-            'RoleArn': baseline_job_role.role_arn,
-            'StoppingCondition': {
-                'MaxRuntimeInSeconds': max_runtime
-            }
-        },
-        result_path=f"$.{construct_id}Task",
-        iam_resources=['*'],
-        integration_pattern=stepfunctions.IntegrationPattern.REQUEST_RESPONSE  
-    )
-
-def get_mb_bl_task(
-    scope, 
-    construct_id,
-    job_name,
-    baseline_job_role,
-    monitor_dir,
-    instance_type_lkp,
-    problem_type,
-    inference_attribute,
-    ground_truth_attribute,
-    probability_attribute=None,
-    probability_threshold_attribute=None,
-    positive_label=None,
-    exclude_features_attribute=None,
-    image_uri="156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
-    dataset_format={'csv': {'header': True}},
-    instance_count=1,
-    volume_size=20,
-    max_runtime=1800
-
-):
-    environment = {
-        'dataset_source': '/opt/ml/processing/sm_input',
-        'output_path': '/opt/ml/processing/sm_output',
-        'dataset_format': json.dumps(dataset_format),
-        'analysis_type': 'MODEL_BIAS',
-        'problem_type': problem_type,
-        'inference_attribute': inference_attribute,
-        'ground_truth_attribute': ground_truth_attribute,
-        'publish_cloudwatch_metrics': 'Disabled'
-    }
-    if probability_attribute: environment['probability_attribute'] = probability_attribute
-    if probability_threshold_attribute: environment['probability_threshold_attribute'] = probability_threshold_attribute
-    if positive_label: environment['positive_label'] = positive_label
-    if exclude_features_attribute: environment['exclude_features_attribute'] = exclude_features_attribute
-
-    return tasks.CallAwsService(
-        scope, 
-        construct_id,
-        service='sagemaker',
-        action='createProcessingJob',
-        parameters={
-            'ProcessingJobName': f"{job_name}-{datetime.datetime.now().strftime('%Y-%m-%d-H-%M-%S')}",
-            'ProcessingResources': {
-                'ClusterConfig': {
-                    'InstanceCount': instance_count,
-                    'InstanceType': stepfunctions.JsonPath.string_at(instance_type_lkp),
-                    'VolumeSizeInGB': volume_size
-                }
-            },
-            'AppSpecification': {
-                'ImageUri': image_uri
-            },
-            'ProcessingInputs':[{
-                'InputName': 'input',
-                'S3Input': {
-                    'S3Uri': monitor_dir+'/baseline.csv',
-                    'LocalPath': '/opt/ml/processing/sm_input',
-                    'S3DataType': 'S3Prefix',
-                    'S3InputMode': 'File'
-                }
-            }],
-            'ProcessingOutputConfig':{
-                'Outputs': [{
-                    'OutputName': 'output',
-                    'S3Output': {
-                        'S3Uri': f'{monitor_dir}/info',
-                        'LocalPath': '/opt/ml/processing/sm_output',
-                        'S3UploadMode': 'EndOfJob'
-                    }
-                }]
-            },
-            'Environment': environment,
-            'RoleArn': baseline_job_role.role_arn,
-            'StoppingCondition': {
-                'MaxRuntimeInSeconds': max_runtime
-            }
-        },
-        result_path=f"$.{construct_id}Task",
-        iam_resources=['*'],
-        integration_pattern=stepfunctions.IntegrationPattern.REQUEST_RESPONSE  
-    )
-
-def get_me_bl_task(
-    scope, 
-    construct_id,
-    job_name,
-    baseline_job_role,
-    monitor_dir,
-    instance_type_lkp,
-    inference_attribute,
-    probability_attribute=None,
-    exclude_features_attribute=None,
-    image_uri="156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
-    dataset_format={'csv': {'header': True}},
-    instance_count=1,
-    volume_size=20,
-    max_runtime=1800
-
-):
-    environment = {
-        'dataset_source': '/opt/ml/processing/sm_input',
-        'output_path': '/opt/ml/processing/sm_output',
-        'dataset_format': json.dumps(dataset_format),
-        'analysis_type': 'MODEL_EXPLAINABILITY',
-        'inference_attribute': inference_attribute,
-        'publish_cloudwatch_metrics': 'Disabled'
-    }
-    if probability_attribute: environment['probability_attribute'] = probability_attribute
-    if exclude_features_attribute: environment['exclude_features_attribute'] = exclude_features_attribute
-
-    return tasks.CallAwsService(
-        scope, 
-        construct_id,
-        service='sagemaker',
-        action='createProcessingJob',
-        parameters={
-            'ProcessingJobName': f"{job_name}-{datetime.datetime.now().strftime('%Y-%m-%d-H-%M-%S')}",
-            'ProcessingResources': {
-                'ClusterConfig': {
-                    'InstanceCount': instance_count,
-                    'InstanceType': stepfunctions.JsonPath.string_at(instance_type_lkp),
-                    'VolumeSizeInGB': volume_size
-                }
-            },
-            'AppSpecification': {
-                'ImageUri': image_uri
-            },
-            'Environment': environment,
-            'ProcessingInputs':[{
-                'InputName': 'input',
-                'S3Input': {
-                    'S3Uri': monitor_dir+'/baseline.csv',
-                    'LocalPath': '/opt/ml/processing/sm_input',
-                    'S3DataType': 'S3Prefix',
-                    'S3InputMode': 'File'
-                }
-            }],
-            'ProcessingOutputConfig':{
-                'Outputs': [{
-                    'OutputName': 'output',
-                    'S3Output': {
-                        'S3Uri': f'{monitor_dir}/info',
-                        'LocalPath': '/opt/ml/processing/sm_output',
-                        'S3UploadMode': 'EndOfJob'
-                    }
-                }]
-            },
-            'RoleArn': baseline_job_role.role_arn,
-            'StoppingCondition': {
-                'MaxRuntimeInSeconds': max_runtime
-            }
-        },
-        result_path=f"$.{construct_id}Task",
-        iam_resources=['*'],
-        integration_pattern=stepfunctions.IntegrationPattern.REQUEST_RESPONSE  
-    )
-
-
-# ModelBiasMonitor
-# ModelExplainabilityMonitor

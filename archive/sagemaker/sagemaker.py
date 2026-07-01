@@ -11,8 +11,9 @@ def transform_job_handler(event, context):
     s3_data_source = event['s3_data_source']
     transform_out_dir = event['transform_out_dir']
     instance_type =  event['instance_type']
+    execution_id=event['execution_id']
 
-    job_name = f"TransformJob-{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}"
+    job_name = f"TransformJob-{execution_id}"
     
     response = sm_client.create_transform_job(
         TransformJobName=job_name,

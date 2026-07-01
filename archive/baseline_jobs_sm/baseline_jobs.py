@@ -19,6 +19,7 @@ def run_dq_bl_job_handler(event, context):
     volume_size_in_gb = event['volume_size_in_gb']
     max_runtime_in_seconds = event['max_runtime_in_seconds']
     dataset_format = event['dataset_format'] # {'csv': {'header': True}},
+    execution_id=event['execution_id']
 
     environment = {
         'dataset_source': monitor_dir+'/baseline.csv',
@@ -29,7 +30,7 @@ def run_dq_bl_job_handler(event, context):
     }
 
     response = sm_client.create_processing_job(
-        ProcessingJobName=f"{name}-{datetime.datetime.now().strftime('%Y-%m-%d-H-%M-%S')}",
+        ProcessingJobName=f"{name}-{execution_id}",
         ProcessingResources={
             'ClusterConfig': {
                 'InstanceCount': instance_count,
@@ -73,6 +74,7 @@ def run_mq_bl_job_handler(event, context):
     volume_size_in_gb = event['volume_size_in_gb']
     max_runtime_in_seconds = event['max_runtime_in_seconds']
     dataset_format = event['dataset_format'] # {'csv': {'header': True}},
+    execution_id=event['execution_id']
 
     environment = {
         'dataset_source': monitor_dir+'/baseline.csv',
@@ -89,7 +91,7 @@ def run_mq_bl_job_handler(event, context):
     if event['positive_label']: environment['positive_label'] = event['positive_label']
     
     response = sm_client.create_processing_job(
-        ProcessingJobName=f"{name}-{datetime.datetime.now().strftime('%Y-%m-%d-H-%M-%S')}",
+        ProcessingJobName=f"{name}-{execution_id}",
         ProcessingResources={
             'ClusterConfig': {
                 'InstanceCount': instance_count,
@@ -122,6 +124,7 @@ def run_mb_bl_job_handler(event, context):
     volume_size_in_gb = event['volume_size_in_gb']
     max_runtime_in_seconds = event['max_runtime_in_seconds']
     dataset_format = event['dataset_format'] # {'csv': {'header': True}},
+    execution_id=event['execution_id']
 
 
     environment = {
@@ -140,7 +143,7 @@ def run_mb_bl_job_handler(event, context):
     if event['exclude_features_attribute']: environment['exclude_features_attribute'] = event['exclude_features_attribute']
 
     response = sm_client.create_processing_job(
-        ProcessingJobName=f"{name}-{datetime.datetime.now().strftime('%Y-%m-%d-H-%M-%S')}",
+        ProcessingJobName=f"{name}-{execution_id}",
         ProcessingResources={
             'ClusterConfig': {
                 'InstanceCount': instance_count,
@@ -169,6 +172,7 @@ def run_me_bl_job_handler(event, context):
     volume_size_in_gb = event['volume_size_in_gb']
     max_runtime_in_seconds = event['max_runtime_in_seconds']
     dataset_format = event['dataset_format'] # {'csv': {'header': True}},
+    execution_id=event['execution_id']
 
     environment = {
         'dataset_source': monitor_dir+'/baseline.csv',
@@ -182,7 +186,7 @@ def run_me_bl_job_handler(event, context):
     if event['exclude_features_attribute']: environment['exclude_features_attribute'] = event['exclude_features_attribute']
 
     response = sm_client.create_processing_job(
-        ProcessingJobName=f"{name}-{datetime.datetime.now().strftime('%Y-%m-%d-H-%M-%S')}",
+        ProcessingJobName=f"{name}-{execution_id}",
         ProcessingResources={
             'ClusterConfig': {
                 'InstanceCount': instance_count,

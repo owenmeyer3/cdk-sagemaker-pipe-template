@@ -1,3 +1,4 @@
-sagemaker
+sagemaker-core
+sagemaker-mlops
 pandas
 boto3

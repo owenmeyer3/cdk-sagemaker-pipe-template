@@ -91,6 +91,11 @@ class SagemakerPipeTemplateStack(Stack):
         self.enable_sns_notification_lkp = '$.ENABLE_SNS_NOTIFICATION' # :False,
         self.ground_truth_dir_lkp = '$.GROUND_TRUTH_DIR'# :f's3://omm-test-bucket/ground-truth/abalone',
         self.batch_input_dir_lkp = '$.BATCH_INPUT_DIR'# :f's3://omm-test-bucket/ground-truth/abalone',
+        self.execution_id_lkp = ('$$.Execution.Name')
+
+        # '%Y-%m-%d-%H-%M-%S'
+        # stepfunctions.JsonPath.format(f'{name}-{{}}', stepfunctions.JsonPath.string_at(execution_id_lkp))
+        # execution_id=event['execution_id']
 
         state_machine_start = stepfunctions.Pass(self, 'Start')
         sf_launch_schedule = events.Schedule.rate(Duration.hours(1))
@@ -133,7 +138,8 @@ class SagemakerPipeTemplateStack(Stack):
             scope, 
             'BaselineTransform', 
             f'{self.name}-bl-transform-job', 
-            model_name_lkp, 
+            model_name_lkp,
+            self.execution_id_lkp, 
             self.transform_instance_type_lkp, 
             s3_data_source_lkp=baseline_X_file_lkp, 
             transform_out_dir=self.baseline_dir
@@ -165,7 +171,8 @@ class SagemakerPipeTemplateStack(Stack):
             f'{self.name}-dq-baseline-fn', 
             self.baseline_image_repo,
             self.other_execution_role_arn, 
-            self.dq_monitor_dir, 
+            self.dq_monitor_dir,
+            self.execution_id_lkp,
         )
 
         mq_baseline_task, mq_baseline_function = lambda_tasks.run_mq_bl_job_fn_task(
@@ -175,6 +182,7 @@ class SagemakerPipeTemplateStack(Stack):
             self.baseline_image_repo,
             self.other_execution_role_arn, 
             self.mq_monitor_dir, 
+            self.execution_id_lkp,
             self.prediction_name,
             self.target_name,
             self.problem_type,
@@ -189,7 +197,8 @@ class SagemakerPipeTemplateStack(Stack):
             model_name_lkp,
             self.baseline_image_repo,
             self.other_execution_role_arn, 
-            self.mb_monitor_dir, 
+            self.mb_monitor_dir,
+            self.execution_id_lkp,
             self.target_name
         )
 
@@ -201,6 +210,7 @@ class SagemakerPipeTemplateStack(Stack):
             model_name_lkp,
             self.other_execution_role_arn, 
             self.me_monitor_dir, 
+            self.execution_id_lkp,
             self.target_name,
             self.baseline_cols_lkp,
             baseline_X_file_lkp
@@ -307,6 +317,7 @@ class SagemakerPipeTemplateStack(Stack):
             'BatchTransform', 
             f'{self.name}-batch-transform-job', 
             model_name_lkp, 
+            self.execution_id_lkp,
             self.transform_instance_type_lkp, 
             s3_data_source_lkp=self.batch_input_dir_lkp, 
             transform_out_dir=self.batch_out_dir

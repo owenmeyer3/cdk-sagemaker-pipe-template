@@ -70,7 +70,7 @@ processing_job = ProcessingJob.create(
         service='sagemaker',
         action='createProcessingJob',
         parameters={
-            'ProcessingJobName': f"{job_name}-{datetime.datetime.now().strftime('%Y-%m-%d-H-%M-%S')}",
+            'ProcessingJobName': f"{job_name}-{execution_id}",
             'ProcessingResources': {
                 'ClusterConfig': {
                     'InstanceCount': instance_count,

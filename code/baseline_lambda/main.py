@@ -1,9 +1,9 @@
 from sagemaker.core.model_monitor import DefaultModelMonitor
 from sagemaker.core.model_monitor.dataset_format import DatasetFormat
 from sagemaker.core.helper.session_helper import Session
-from sagemaker.model_monitor import ModelQualityMonitor
-from sagemaker.model_monitor.clarify_model_monitoring import ModelBiasMonitor, ModelExplainabilityMonitor
-from sagemaker.clarify import DataConfig as CfyDataConfig, BiasConfig as CfyBiasConfig, ModelConfig as CfyModelConfig, ModelPredictedLabelConfig as CfyModelPredictedLabelConfig, SHAPConfig as CfySHAPConfig
+from sagemaker.core.model_monitor import ModelQualityMonitor
+from sagemaker.core.model_monitor.clarify_model_monitoring import ModelBiasMonitor, ModelExplainabilityMonitor
+from sagemaker.core.clarify import DataConfig as CfyDataConfig, BiasConfig as CfyBiasConfig, ModelConfig as CfyModelConfig, ModelPredictedLabelConfig as CfyModelPredictedLabelConfig, SHAPConfig as CfySHAPConfig
 import pandas as pd 
 from urllib.parse import urlparse
 import datetime, boto3
@@ -37,6 +37,7 @@ def create_dq_baseline_handler(event, context):
     instance_type = event['instance_type'] if 'instance_type' in event else 'ml.m5.xlarge'
     volume_size_in_gb = event['volume_size_in_gb'] if 'volume_size_in_gb' in event else 20
     max_runtime_in_seconds = event['max_runtime_in_seconds'] if 'max_runtime_in_seconds' in event else 3600
+    execution_id=event['execution_id']
 
     my_default_monitor = DefaultModelMonitor(
         role=role,
@@ -47,7 +48,7 @@ def create_dq_baseline_handler(event, context):
     )
 
     my_default_monitor.suggest_baseline(
-        job_name=f"mq-baseline-{datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}",
+        job_name=f"mq-baseline-{execution_id}",
         baseline_dataset=baseline_dataset,
         dataset_format=get_dataset_format(dataset_format),
         output_s3_uri=output_s3_uri,
@@ -64,6 +65,7 @@ def create_mq_baseline_handler(event, context):
     inference_attribute = event['inference_attribute'] # The column in the dataset that contains predictions.
     probability_attribute = event['probability_attribute'] # The column in the dataset that contains probabilities.
     ground_truth_attribute = event['ground_truth_attribute'] # The column in the dataset that contains ground truth labels.
+    execution_id=event['execution_id']
     dataset_format = event['dataset_format'] if 'dataset_format' in event else {'csv': {'header': True}}
     instance_count = event['instance_count'] if 'instance_count' in event else 1
     instance_type = event['instance_type'] if 'instance_type' in event else 'ml.m5.xlarge'
@@ -79,7 +81,7 @@ def create_mq_baseline_handler(event, context):
         sagemaker_session=Session()
     )    
     model_quality_monitor.suggest_baseline(
-        job_name=f"mq-baseline-{datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}",
+        job_name=f"mq-baseline-{execution_id}",
         baseline_dataset=baseline_dataset, # The S3 location of the validation dataset.
         dataset_format=get_dataset_format(dataset_format),
         output_s3_uri = output_s3_uri, # The S3 location to store the results.

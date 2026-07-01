@@ -42,6 +42,7 @@ class ELambdaFunction(Construct):
                 tag_or_digest='latest',
                 cmd=cmd
             ),
+            role=scope.lambda_execution_role_arn,
             function_name=function_name,
             timeout=Duration.minutes(15),
             memory_size=512,
@@ -68,30 +69,6 @@ class ELambdaFunction(Construct):
             result_selector=result_selection,
             result_path=f"$.{self.node.id}Task",
         )
-
-def parse_instances_fn_task(scope, construct_id, function_name, monitor_instance_lkp, transform_instance_lkp, endpoint_instance_lkp):
-    lambda_function = CLambdaFunction(
-        scope, construct_id,
-        use_docker=False,
-        function_name=function_name,
-        code_path='code/utils_scripts',
-        handler='utils_scripts.instance_parse_handler',
-        role=scope.lambda_execution_role_arn,
-        log_group_name=f"/lambda/{function_name}",
-        log_retention=logs.RetentionDays.ONE_MONTH,
-        runtime='python3.11',
-        timeout=Duration.minutes(5)
-    )
-    task = lambda_function.generate_task(
-        payload={
-            'monitor_instance': stepfunctions.JsonPath.string_at(monitor_instance_lkp),
-            'transform_instance': stepfunctions.JsonPath.string_at(transform_instance_lkp),
-            'endpoint_instance': stepfunctions.JsonPath.string_at(endpoint_instance_lkp)
-        },
-        outputs=['MONITOR_INSTANCE.CLASS', 'MONITOR_INSTANCE.SIZE', 'TRANSFORM_INSTANCE.CLASS', 'TRANSFORM_INSTANCE.SIZE', 'ENDPOINT_INSTANCE.CLASS', 'ENDPOINT_INSTANCE.SIZE']
-        # result_selector={}
-    )
-    return [task, lambda_function]
 
 def get_get_or_create_model_from_registry_fn_task(scope, construct_id, function_name, model_package_group_name, model_package_version_lkp, create_model_role):
     stepfunctions.JsonPath.string_at(model_package_version_lkp)
@@ -580,13 +557,15 @@ def run_dq_bl_job_fn_task(
     function_name, 
     repo,
     monitor_role, 
-    monitor_dir, 
+    monitor_dir,
+    execution_id_lkp
 ):
     print(f'repo {repo}')
     payload={
         'role':monitor_role.role_arn,
         'baseline_dataset':monitor_dir+'/baseline.csv',
         'output_s3_uri':monitor_dir+'/info',
+        'execution_id':stepfunctions.JsonPath.string_at(execution_id_lkp)
     }
 
     e = ELambdaFunction(
@@ -611,6 +590,7 @@ def run_mq_bl_job_fn_task(
     repo,
     monitor_role, 
     monitor_dir,
+    execution_id_lkp,
     inference_attribute,
     ground_truth_attribute,
     problem_type,
@@ -625,7 +605,8 @@ def run_mq_bl_job_fn_task(
         'inference_attribute':inference_attribute,
         'probability_attribute':probability_attribute,
         'ground_truth_attribute':ground_truth_attribute,
-        'probability_threshold_attribute':probability_threshold_attribute
+        'probability_threshold_attribute':probability_threshold_attribute,
+        'execution_id':stepfunctions.JsonPath.string_at(execution_id_lkp)
     }
 
     e = ELambdaFunction(
@@ -650,6 +631,7 @@ def run_mb_bl_job_fn_task(
     repo,
     monitor_role,
     monitor_dir,
+    execution_id_lkp,
     label
 ):
     payload={
@@ -659,7 +641,8 @@ def run_mb_bl_job_fn_task(
         'output_s3_uri':monitor_dir+'/info',
         'label':label,
         'bias_config':{'label_values_or_threshold':[1], 'function':"sex_M", 'facet_values_or_threshold':[0.5]},
-        'model_predicted_label_config':{'probability_threshold':0.8}
+        'model_predicted_label_config':{'probability_threshold':0.8},
+        'execution_id':stepfunctions.JsonPath.string_at(execution_id_lkp)
     }
 
     e = ELambdaFunction(
@@ -685,6 +668,7 @@ def run_me_bl_job_fn_task(
     model_name_lkp,
     monitor_role, 
     monitor_dir,
+    execution_id_lkp,
     label,
     baseline_cols_lkp,
     test_X_dataset_lkp
@@ -698,6 +682,7 @@ def run_me_bl_job_fn_task(
         'label':label,
         'baseline_cols':stepfunctions.JsonPath.string_at(baseline_cols_lkp),
         'test_X_dataset':stepfunctions.JsonPath.string_at(test_X_dataset_lkp),
+        'execution_id':stepfunctions.JsonPath.string_at(execution_id_lkp)
     }
 
     e = ELambdaFunction(
