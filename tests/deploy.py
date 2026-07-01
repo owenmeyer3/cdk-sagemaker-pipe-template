@@ -2,7 +2,7 @@ import boto3, json, uuid
 sfn_client = boto3.client('stepfunctions')
 
 response = sfn_client.start_execution(
-    stateMachineArn='arn:aws:states:us-east-1:088461143167:stateMachine:SM934E715A-oZm8fUzkL9YU',
+    stateMachineArn='arn:aws:states:us-east-1:088461143167:stateMachine:SM934E715A-5T6M0VTejgO0',
     # name='string',
     input=json.dumps({
         'MODEL_PACKAGE_VERSION':1,

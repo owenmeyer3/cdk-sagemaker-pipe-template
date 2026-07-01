@@ -1,8 +1,16 @@
 FROM public.ecr.aws/lambda/python:3.12
+# login
+# aws ecr get-login-password --region us-east-1 | sudo docker login --username AWS --password-stdin 088461143167.dkr.ecr.us-east-1.amazonaws.com
 
+# create repo
+# aws ecr create-repository --repository-name baseline-image --region us-east-1
+
+# build and push
 # sudo docker build -t baseline-image -f infrastructure/baseline_image/Dockerfile .
 # sudo docker tag baseline-image:latest 088461143167.dkr.ecr.us-east-1.amazonaws.com/baseline-image:latest
 # sudo docker push 088461143167.dkr.ecr.us-east-1.amazonaws.com/baseline-image:latest
+
+# update function
 # aws lambda update-function-code --function-name BaselineLambda --image-uri 088461143167.dkr.ecr.us-east-1.amazonaws.com/baseline-lambda:latest
 
 WORKDIR /var/task

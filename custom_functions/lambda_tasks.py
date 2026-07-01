@@ -28,23 +28,24 @@ class ELambdaFunction(Construct):
         log_retention='',
         task_timeout=stepfunctions.Timeout.duration(Duration.minutes(10))
     ):
+        print(f'repo {repo}')
 
         super().__init__(scope, construct_id)
 
-        repo=None
         task_timeout=stepfunctions.Timeout.duration(Duration.minutes(10))
-        self.task_log_group = logs.LogGroup(self, f"{self.node.id}Log", log_group_name=log_group_name, log_retention=log_retention, removal_policy=RemovalPolicy.DESTROY)
+        self.task_log_group = logs.LogGroup(self, f"{self.node.id}Log", log_group_name=log_group_name, retention=log_retention, removal_policy=RemovalPolicy.DESTROY)
 
         self.fn = _lambda.DockerImageFunction(
             self, f'{construct_id}Lambda',
-            function_name,
             code=_lambda.DockerImageCode.from_ecr(
                 repository=repo,
                 tag_or_digest='latest',
                 cmd=cmd
             ),
+            function_name=function_name,
             timeout=Duration.minutes(15),
-            memory_size=512
+            memory_size=512,
+            log_group=self.task_log_group
         )
 
         print(f"outputs: {outputs}")
@@ -66,7 +67,6 @@ class ELambdaFunction(Construct):
             retry_on_service_exceptions=False,
             result_selector=result_selection,
             result_path=f"$.{self.node.id}Task",
-            log_group=self.task_log_group
         )
 
 def parse_instances_fn_task(scope, construct_id, function_name, monitor_instance_lkp, transform_instance_lkp, endpoint_instance_lkp):
@@ -582,6 +582,7 @@ def run_dq_bl_job_fn_task(
     monitor_role, 
     monitor_dir, 
 ):
+    print(f'repo {repo}')
     payload={
         'role':monitor_role.role_arn,
         'baseline_dataset':monitor_dir+'/baseline.csv',
@@ -594,14 +595,13 @@ def run_dq_bl_job_fn_task(
         function_name, 
         repo, 
         cmd=['baseline_lambda.main.create_dq_baseline_handler'],
-        outputs=[], 
         payload=payload, 
-        log_group_name='/lambda/baseline-mb-job', 
+        log_group_name=f'/lambda/{function_name}', 
         log_retention=logs.RetentionDays.ONE_MONTH,
         outputs=[]
     )
 
-    return [e.task, e.baseline_dq_lambda]
+    return [e.task, e.fn]
 
 
 def run_mq_bl_job_fn_task(
@@ -634,14 +634,13 @@ def run_mq_bl_job_fn_task(
         function_name, 
         repo, 
         cmd=['baseline_lambda.main.create_mq_baseline_handler'],
-        outputs=[], 
         payload=payload, 
-        log_group_name='/lambda/baseline-mb-job', 
+        log_group_name=f'/lambda/{function_name}', 
         log_retention=logs.RetentionDays.ONE_MONTH,
         outputs=[]
     )
 
-    return [e.task, e.baseline_dq_lambda]
+    return [e.task, e.fn]
 
 def run_mb_bl_job_fn_task(
     scope, 
@@ -651,8 +650,7 @@ def run_mb_bl_job_fn_task(
     repo,
     monitor_role,
     monitor_dir,
-    label,
-    baseline_cols_lkp
+    label
 ):
     payload={
         'role':monitor_role.role_arn,
@@ -670,14 +668,13 @@ def run_mb_bl_job_fn_task(
         function_name, 
         repo, 
         cmd=['baseline_lambda.main.create_mb_baseline_handler'],
-        outputs=[], 
         payload=payload, 
-        log_group_name='/lambda/baseline-mb-job', 
+        log_group_name=f'/lambda/{function_name}', 
         log_retention=logs.RetentionDays.ONE_MONTH,
         outputs=[]
     )
 
-    return [e.task, e.baseline_dq_lambda]
+    return [e.task, e.fn]
 
 
 def run_me_bl_job_fn_task(
@@ -709,11 +706,10 @@ def run_me_bl_job_fn_task(
         function_name, 
         repo, 
         cmd=['baseline_lambda.main.create_dq_baseline_handler'],
-        outputs=[], 
         payload=payload, 
-        log_group_name='/lambda/baseline-me-job', 
+        log_group_name=f'/lambda/{function_name}', 
         log_retention=logs.RetentionDays.ONE_MONTH,
         outputs=[]
     )
 
-    return [e.task, e.baseline_dq_lambda]
+    return [e.task, e.fn]

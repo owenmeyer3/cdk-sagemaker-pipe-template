@@ -48,8 +48,10 @@ class SagemakerPipeTemplateStack(Stack):
 
         print(f"ROLE: {self.state_machine_execution_role.role_arn}")
 
-        baseline_image_repo = ecr.Repository.from_repository_name(
-            self, 'BaselineImageRepo', '088461143167.dkr.ecr.us-east-1.amazonaws.com/baseline-lambda:latest'
+        self.baseline_image_repo = ecr.Repository.from_repository_name(
+            self, 
+            'BaselineImageRepo', 
+            'baseline-image'
         )
 
         # Derived Params
@@ -376,7 +378,6 @@ class SagemakerPipeTemplateStack(Stack):
         # ALLOW SM TO CAL LAMBDAS
         get_or_create_model_from_registry_function.add_invoker_arn(state_machine.state_machine_arn)
         prep_baseline_sets_function.add_invoker_arn(state_machine.state_machine_arn)
-        # baseline_transform_function.add_invoker_arn(state_machine.state_machine_arn)
         get_baseline_preds_function.add_invoker_arn(state_machine.state_machine_arn)
         make_baseline_function.add_invoker_arn(state_machine.state_machine_arn)
         deploy_endpoint_function.add_invoker_arn(state_machine.state_machine_arn)
@@ -384,15 +385,15 @@ class SagemakerPipeTemplateStack(Stack):
         schedule_mq_function.add_invoker_arn(state_machine.state_machine_arn)
         schedule_me_function.add_invoker_arn(state_machine.state_machine_arn)
         schedule_mb_function.add_invoker_arn(state_machine.state_machine_arn)
-        # batch_transform_function.add_invoker_arn(state_machine.state_machine_arn)
         check_dq_function.add_invoker_arn(state_machine.state_machine_arn)
         check_mq_function.add_invoker_arn(state_machine.state_machine_arn)
         check_me_function.add_invoker_arn(state_machine.state_machine_arn)
         check_mb_function.add_invoker_arn(state_machine.state_machine_arn)
-        # dq_baseline_function.add_invoker_arn(state_machine.state_machine_arn)
-        # mq_baseline_function.add_invoker_arn(state_machine.state_machine_arn)
-        # mb_baseline_function.add_invoker_arn(state_machine.state_machine_arn)
-        # me_baseline_function.add_invoker_arn(state_machine.state_machine_arn)
+        dq_baseline_function.grant_invoke(state_machine)
+        mq_baseline_function.grant_invoke(state_machine)
+        mb_baseline_function.grant_invoke(state_machine)
+        me_baseline_function.grant_invoke(state_machine)
+
 
         # RULE
         sf_launch_rule = events.Rule(self, "Rule", 
