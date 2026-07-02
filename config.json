@@ -38,7 +38,7 @@
 			],
 			"SECURITY_GROUP":"sg-00f14515abe1e47e8"
 		},
-		"CLUSTER_NAME":"",
+		"CLUSTER_NAME":"omm-test-cluster",
 		"FNS":{
 			"CLASSIFY_DOC":{},
 			"PROCESS_DOC_1":{},

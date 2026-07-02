@@ -159,7 +159,7 @@ class CFargateTaskDefinition(ecs.FargateTaskDefinition):
             val=stepfunctions.JsonPath.string_at(e["Value.$"]) if "Value.$" in list(e.keys()) else e["Value"]
             environment.append(tasks.TaskEnvironmentVariable(name=e['Name'], value=val))
         
-        launch_target = kwargs.pop("launch_target", tasks.EcsEc2LaunchTarget(platform_version=ecs.FargatePlatformVersion(ecs.FargatePlatformVersion.LATEST)))
+        launch_target = kwargs.pop("launch_target", tasks.EcsFargateLaunchTarget(platform_version=ecs.FargatePlatformVersion(ecs.FargatePlatformVersion.LATEST)))
         integration_pattern = kwargs.pop("integration_pattern", stepfunctions.IntegrationPattern.WAIT_FOR_TASK_TOKEN)
         task_timeout=kwargs.pop("task_timeout", stepfunctions.Timeout.duration(Duration.minutes(10)))
 

@@ -8,7 +8,7 @@ response = sfn_client.start_execution(
         'MODEL_PACKAGE_VERSION':1,
         'ACTION':'', # realtime / batch
         'BASELINE_FILE':'s3://omm-test-bucket/abalone-train/data/validation/validation.csv',
-        'BASELINE_COLS':['rings','length', 'diameter', 'height', 'whole_weight', 'shucked_weight', 'viscera_weight', 'shell_weight', 'sex_F', 'sex_I', 'sex_M'],
+        'BASELINE_COLS':'["rings", "length", "diameter", "height", "whole_weight", "shucked_weight", "viscera_weight", "shell_weight", "sex_F", "sex_I", "sex_M"]',
         'MONITOR_INSTANCE_TYPE':'ml.m5.large',
         'ENDPOINT_INSTANCE_TYPE':'ml.m5.large',
         'TRANSFORM_INSTANCE_TYPE':'ml.m5.large',

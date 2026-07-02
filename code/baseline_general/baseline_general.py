@@ -116,7 +116,7 @@ def prep_baseline_sets_handler(event, context):
     target_name = event['target_name']
     target_type = event['target_type']
     baseline_dir = event['baseline_dir']
-    columns=event['columns'] if 'columns' in event else None
+    columns=json.loads(event['columns']) if 'columns' in event else None
         
     # get baseline X
     headered_baseline=df_from_s3(baseline_file, header=None, names=columns) # baseline file == validation file

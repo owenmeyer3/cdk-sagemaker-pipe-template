@@ -120,7 +120,7 @@ def prep_baseline_sets_fn_task(scope, construct_id, function_name, baseline_file
             'target_name':target_name,
             'target_type': target_type,
             'baseline_dir':baseline_dir,
-            'columns':stepfunctions.JsonPath.list_at(baseline_cols_lkp)
+            'columns':stepfunctions.JsonPath.string_at(baseline_cols_lkp)
         },
         outputs=['BASELINE_HEADERED_FILE', 'BASELINE_X_FILE', 'BASELINE_X_FILENAME']
         # result_selector={}

@@ -11,6 +11,7 @@ from aws_cdk import (
     aws_events_targets as targets,
     aws_ecr_assets as ecr_assets,
     aws_ecr as ecr,
+    aws_ec2 as ec2,
     aws_lambda as _lambda
 )
 from constructs import Construct
@@ -19,6 +20,8 @@ from custom_constructs.CLambda import CLambdaFunction
 from custom_constructs.CECS import CFargateTaskDefinition
 from custom_constructs.utils import get_local_project_root
 import custom_functions.lambda_tasks as lambda_tasks
+import custom_functions.baseline_l_tasks as baseline_l_tasks
+import custom_functions.baseline_e_tasks as baseline_e_tasks
 import custom_functions.sagemaker_tasks as sagemaker_tasks 
 
 class SagemakerPipeTemplateStack(Stack):
@@ -32,7 +35,6 @@ class SagemakerPipeTemplateStack(Stack):
         self.target_name=project_config['TARGET_NAME']
         self.target_type = project_config['TARGET_TYPE']
         self.problem_type=project_config['PROBLEM_TYPE']
-        self.feature_names=project_config['FEATURE_NAMES']
         self.prediction_name=project_config['PREDICTION_NAME']
         self.ground_truth_label=project_config['GROUND_TRUTH_LABEL']
         self.model_package_group_name=project_config['MODEL_PACKAGE_GROUP_NAME']
@@ -43,10 +45,18 @@ class SagemakerPipeTemplateStack(Stack):
         self.lambda_execution_role_arn=iam.Role.from_role_arn(self, "ImportedLambdaExecutionRole", env_config['LAMBDA_EXECUTION_ROLE_ARN'], mutable=False)
         self.other_execution_role_arn=iam.Role.from_role_arn(self, "ImportedOtherExecutionRole", env_config['OTHER_EXECUTION_ROLE_ARN'], mutable=False)
         self.network = CNetwork(self, "ImportedNetwork", region=env_config['REGION_NAME'], vpc_config=env_config['VPC_CONFIG'])
+        self.cluster = ecs.Cluster.from_cluster_attributes(self, "ImportedCluster", cluster_name=env_config['CLUSTER_NAME'], vpc=self.network.get_vpc())
         self.pandas_layer_version=_lambda.LayerVersion.from_layer_version_arn(self, 'ExistingPandasLayer', 'arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python311:33')
+        # self.public_subnet_selection=ec2.SubnetSelection(subnets=[ec2.Subnet.from_subnet_id(self, 'ExistingPublicSubnet', 'subnet-00d66021', route_table_id='rtb-xxxxxxxx')])
+        self.public_subnet_selection=ec2.SubnetSelection(subnets=[ec2.Subnet.from_subnet_attributes(self, 'ExistingPublicSubnet',subnet_id='subnet-00d66021',route_table_id='rtb-a787c4d9')])
         assert os.getenv('ACTION') not in ['deploy', 'inference'], 'ACTION must be in [deploy, inference]'
 
+
+
         print(f"ROLE: {self.state_machine_execution_role.role_arn}")
+        
+
+
 
         self.baseline_image_repo = ecr.Repository.from_repository_name(
             self, 
@@ -165,22 +175,45 @@ class SagemakerPipeTemplateStack(Stack):
             layers=[self.pandas_layer_version]
         )
 
-        dq_baseline_task, dq_baseline_function = lambda_tasks.run_dq_bl_job_fn_task(
+        # dq_baseline_task, dq_baseline_function = baseline_l_tasks.run_dq_bl_job_fn_task(
+        #     self, 
+        #     'DQBaselineJob', 
+        #     f'{self.name}-dq-baseline-fn', 
+        #     self.baseline_image_repo,
+        #     self.other_execution_role_arn, 
+        #     self.dq_monitor_dir,
+        #     self.execution_id_lkp,
+        # )
+        dq_baseline_task=baseline_e_tasks.run_dq_bl_job_fn_task(
             self, 
             'DQBaselineJob', 
-            f'{self.name}-dq-baseline-fn', 
+            f'{self.name}-dq-baseline', 
             self.baseline_image_repo,
-            self.other_execution_role_arn, 
+            self.other_execution_role_arn,
             self.dq_monitor_dir,
-            self.execution_id_lkp,
-        )
+            self.execution_id_lkp
+        ).get_task(self.cluster)
 
-        mq_baseline_task, mq_baseline_function = lambda_tasks.run_mq_bl_job_fn_task(
+        # mq_baseline_task, mq_baseline_function = baseline_l_tasks.run_mq_bl_job_fn_task(
+        #     self, 
+        #     'MQBaselineJob', 
+        #     f'{self.name}-mq-baseline-fn', 
+        #     self.baseline_image_repo,
+        #     self.other_execution_role_arn,
+        #     self.mq_monitor_dir, 
+        #     self.execution_id_lkp,
+        #     self.prediction_name,
+        #     self.target_name,
+        #     self.problem_type,
+        #     probability_attribute=None, # Classification Only,
+        #     probability_threshold_attribute=None,  # Classification Only
+        # )
+        mq_baseline_task=baseline_e_tasks.run_mq_bl_job_fn_task(
             self, 
             'MQBaselineJob', 
-            f'{self.name}-mq-baseline-fn', 
+            f'{self.name}-mq-baseline-fn',
             self.baseline_image_repo,
-            self.other_execution_role_arn, 
+            self.other_execution_role_arn,
             self.mq_monitor_dir, 
             self.execution_id_lkp,
             self.prediction_name,
@@ -188,24 +221,48 @@ class SagemakerPipeTemplateStack(Stack):
             self.problem_type,
             probability_attribute=None, # Classification Only,
             probability_threshold_attribute=None,  # Classification Only
-        )
+        ).get_task(self.cluster)
 
-        mb_baseline_task, mb_baseline_function = lambda_tasks.run_mb_bl_job_fn_task(
+        # mb_baseline_task, mb_baseline_function = baseline_l_tasks.run_mb_bl_job_fn_task(
+        #     self, 
+        #     'MBBaselineJob', 
+        #     f'{self.name}-mb-baseline-fn',
+        #     model_name_lkp,
+        #     self.baseline_image_repo,
+        #     self.other_execution_role_arn, 
+        #     self.mb_monitor_dir,
+        #     self.execution_id_lkp,
+        #     self.target_name
+        # )
+        mb_baseline_task = baseline_e_tasks.run_mb_bl_job_fn_task(
             self, 
             'MBBaselineJob', 
-            f'{self.name}-mb-baseline-fn',
-            model_name_lkp,
+            f'{self.name}-mb-baseline',
             self.baseline_image_repo,
+            model_name_lkp,
             self.other_execution_role_arn, 
             self.mb_monitor_dir,
             self.execution_id_lkp,
             self.target_name
-        )
+        ).get_task(self.cluster)
 
-        me_baseline_task, me_baseline_function = lambda_tasks.run_me_bl_job_fn_task(
+        # me_baseline_task, me_baseline_function = baseline_l_tasks.run_me_bl_job_fn_task(
+        #     self, 
+        #     'MEBaselineJob', 
+        #     f'{self.name}-me-baseline-fn', 
+        #     self.baseline_image_repo,
+        #     model_name_lkp,
+        #     self.other_execution_role_arn, 
+        #     self.me_monitor_dir, 
+        #     self.execution_id_lkp,
+        #     self.target_name,
+        #     self.baseline_cols_lkp,
+        #     baseline_X_file_lkp
+        # )
+        me_baseline_task = baseline_e_tasks.run_me_bl_job_fn_task(
             self, 
             'MEBaselineJob', 
-            f'{self.name}-me-baseline-fn', 
+            f'{self.name}-me-baseline',
             self.baseline_image_repo,
             model_name_lkp,
             self.other_execution_role_arn, 
@@ -214,7 +271,7 @@ class SagemakerPipeTemplateStack(Stack):
             self.target_name,
             self.baseline_cols_lkp,
             baseline_X_file_lkp
-        )
+        ).get_task(self.cluster)
         
         parallel_baseline_jobs=stepfunctions.Parallel(self, 'ParallelBaselineJobs') \
             .branch(mb_baseline_task) \
@@ -400,10 +457,10 @@ class SagemakerPipeTemplateStack(Stack):
         check_mq_function.add_invoker_arn(state_machine.state_machine_arn)
         check_me_function.add_invoker_arn(state_machine.state_machine_arn)
         check_mb_function.add_invoker_arn(state_machine.state_machine_arn)
-        dq_baseline_function.grant_invoke(state_machine)
-        mq_baseline_function.grant_invoke(state_machine)
-        mb_baseline_function.grant_invoke(state_machine)
-        me_baseline_function.grant_invoke(state_machine)
+        # dq_baseline_function.grant_invoke(state_machine)
+        # mq_baseline_function.grant_invoke(state_machine)
+        # mb_baseline_function.grant_invoke(state_machine)
+        # me_baseline_function.grant_invoke(state_machine)
 
 
         # RULE
