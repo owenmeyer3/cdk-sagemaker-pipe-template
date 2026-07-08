@@ -3,7 +3,7 @@ from sagemaker.core.model_monitor.dataset_format import DatasetFormat
 from sagemaker.core.helper.session_helper import Session
 from sagemaker.core.model_monitor import ModelQualityMonitor
 from sagemaker.core.model_monitor.clarify_model_monitoring import ModelBiasMonitor, ModelExplainabilityMonitor
-from sagemaker.core.clarify import DataConfig as CfyDataConfig, BiasConfig as CfyBiasConfig, ModelConfig as CfyModelConfig, ModelPredictedLabelConfig as CfyModelPredictedLabelConfig, SHAPConfig as CfySHAPConfig
+from sagemaker.core.clarify import DataConfig as CfyDataConfig, BiasConfig as CfyBiasConfig, ModelConfig as CfyModelConfig, ModelPredictedLabelConfig as CfyModelPredictedLabelConfig, SHAPConfig as CfySHAPConfig, TimeSeriesModelConfig as CfyTimeSeriesModelConfig
 import pandas as pd 
 from urllib.parse import urlparse
 import boto3, os, json, sys, io
@@ -12,7 +12,7 @@ stepfunctions = boto3.client('stepfunctions')
 s3_client = boto3.client('s3')
 
 def report_success(stepfunctions, state):
-    stepfunctions.send_task_success(taskToken=os.getenv('TASK_TOKEN'))
+    stepfunctions.send_task_success(taskToken=os.getenv('TASK_TOKEN'), output=json.dumps(state))
     sys.exit(0)
 
 def report_failure(stepfunctions, error_message):
@@ -71,7 +71,7 @@ def create_dq_baseline_handler(
     execution_id
 ):
     baseline_df=load_csv_from_s3(baseline_full_dataset, header=0)
-    baseline_df = baseline_df.drops(columns=[target_label, predict_label])
+    baseline_df = baseline_df.drop(columns=[target_label, predict_label])
     baseline_df.to_csv('/tmp/dq.csv', index=False, header=True)
 
     my_default_monitor = DefaultModelMonitor(
@@ -89,8 +89,7 @@ def create_dq_baseline_handler(
         output_s3_uri=output_s3_uri,
         wait=True
     )
-    print(f"ModelBiasMonitor baselining job: {my_default_monitor.latest_baselining_job_name}")
-    return my_default_monitor.latest_baselining_job_name
+    return f"dq-baseline-{execution_id}"
 
 
 def create_mq_baseline_handler(
@@ -134,33 +133,30 @@ def create_mq_baseline_handler(
 
         wait=True
     )
-    print(f"ModelBiasMonitor baselining job: {model_quality_monitor.latest_baselining_job_name}")
-    return model_quality_monitor.latest_baselining_job_name
+    return f"mq-baseline-{execution_id}"
 
 
 def create_mb_baseline_handler(
     role,
-    model_name,
     baseline_full_dataset, # pred + target + [features]
     output_s3_uri,
     target_label,
     predict_label,
+    model_config,
     bias_config,
     model_predicted_label_config,
     content_type,
-    instance_count,
-    instance_type,
     max_runtime_in_seconds,
     execution_id
 ):
-    s3_data_input_path, headers = parse_csv_and_headers_s3(baseline_full_dataset, target_to_shift=target_label)
-
     model_bias_monitor = ModelBiasMonitor(
         role=role,
         sagemaker_session=Session(),
         max_runtime_in_seconds=max_runtime_in_seconds,
     )
+    print(f'ModelBiasMonitor\n{model_bias_monitor}')
 
+    s3_data_input_path, headers = parse_csv_and_headers_s3(baseline_full_dataset, target_to_shift=target_label)
     model_bias_data_config = CfyDataConfig(
         s3_data_input_path=s3_data_input_path,
         s3_output_path=output_s3_uri,
@@ -170,30 +166,16 @@ def create_mb_baseline_handler(
         features=",".join([c for c in headers if c != target_label and c != predict_label]),
         dataset_type=content_type,
     )
+    print(f'CfyDataConfig\n{model_bias_data_config}')
 
-    if bias_config:
-        bias_config_obj = CfyBiasConfig(
-            label_values_or_threshold=bias_config['label_values_or_threshold'],
-            facet_name=bias_config['function'],
-            facet_values_or_threshold=bias_config['facet_values_or_threshold'],
-        )
-    else:
-        bias_config_obj=None
+    bias_config_obj = CfyBiasConfig(**bias_config)
+    print(f'CfyBiasConfig\n{bias_config_obj}')
 
-    if model_predicted_label_config:
-        model_predicted_label_config_obj = CfyModelPredictedLabelConfig(
-            probability_threshold=model_predicted_label_config['probability_threshold'],
-        )
-    else:
-        model_predicted_label_config_obj=None
+    model_predicted_label_config_obj = CfyModelPredictedLabelConfig(**model_predicted_label_config)
+    print(f'CfyModelPredictedLabelConfig\n{model_predicted_label_config_obj}')
 
-    model_config_obj = CfyModelConfig(
-        model_name=model_name,
-        instance_count=instance_count,
-        instance_type=instance_type,
-        content_type=content_type,
-        accept_type=content_type,
-    )
+    model_config_obj = CfyModelConfig(**model_config)
+    print(f'CfyModelConfig\n{model_config_obj}')
 
     try:
         model_bias_monitor.suggest_baseline(
@@ -209,22 +191,19 @@ def create_mb_baseline_handler(
             print(f"Known SDK bug in post-job wrapping, job itself completed successfully: {e}")
         else:
             raise
-    print(f"ModelBiasMonitor baselining job: {model_bias_monitor.latest_baselining_job_name}")
-    return model_bias_monitor.latest_baselining_job_name
+    return f"mb-baseline-{execution_id}"
 
 
 def create_me_baseline_handler(
     role,
-    model_name,
     baseline_full_dataset,  # pred + [features]
     output_s3_uri,
     target_label,
     predict_label,
+    model_config,
     num_samples,
     agg_method,
     content_type,
-    instance_count,
-    instance_type,
     max_runtime_in_seconds,
     execution_id
 ):
@@ -244,14 +223,10 @@ def create_me_baseline_handler(
         features=",".join([c for c in headers if c != target_label and c != predict_label]), 
         dataset_type=content_type,
     )
+    print(f'CfyDataConfig\n{model_explainability_data_config}')
 
-    model_config_obj = CfyModelConfig(
-        model_name=model_name,
-        instance_count=instance_count,
-        instance_type=instance_type,
-        content_type=content_type,
-        accept_type=content_type,
-    )
+    model_config_obj = CfyModelConfig(**model_config)
+    print(f'CfyModelConfig\n{model_config_obj}')
 
     # Here use the mean value of test dataset as SHAP baseline
     baseline_X_dataframe=load_csv_from_s3(baseline_full_dataset, header=0)
@@ -264,6 +239,7 @@ def create_me_baseline_handler(
         agg_method=agg_method,
         save_local_shap_values=False,
     )
+    print(f'CfySHAPConfig\n{shap_config}')
 
     try:
         model_explainability_monitor.suggest_baseline(
@@ -278,8 +254,7 @@ def create_me_baseline_handler(
             print(f"Known SDK bug in post-job wrapping, job itself completed successfully: {e}")
         else:
             raise
-    print(f"ModelExplainabilityMonitor baselining job: {model_explainability_monitor.latest_baselining_job_name}")
-    return model_explainability_monitor.latest_baselining_job_name
+    return f"me-baseline-{execution_id}"
 
 
 if __name__ == '__main__':
@@ -294,23 +269,78 @@ if __name__ == '__main__':
     baseline_full_dataset = os.getenv('baseline_full_dataset', '')
     output_s3_uri = os.getenv('output_s3_uri', '')
     dataset_format = json.loads(os.getenv('dataset_format', '{"csv": {"header": true}}'))
-    instance_count = int(os.getenv('instance_count', '1'))
-    instance_type = os.getenv('instance_type', 'ml.m5.xlarge')
+    
+    
     volume_size_in_gb = int(os.getenv('volume_size_in_gb', '20'))
     max_runtime_in_seconds = int(os.getenv('max_runtime_in_seconds', '3600'))
     execution_id = os.getenv('execution_id')
     problem_type = os.getenv('problem_type', '')
     predict_label = os.getenv('predict_label', '') # The column in the dataset that contains predictions.
     target_label = os.getenv('target_label', '') # The column in the dataset that contains ground truth labels.
-    model_name = os.getenv('model_name', '')
+    
     bias_config = json.loads(os.getenv('bias_config','{}')) or None # {'label_values_or_threshold':[1], 'function':"Account Length", 'facet_values_or_threshold':[100]}
     model_predicted_label_config = json.loads(os.getenv('model_predicted_label_config','{}')) or None # {'probability_threshold':0.8}
-    content_type = os.getenv('content_type', 'text/csv')
+    
     num_samples = int(os.getenv('num_samples', '100'))
     agg_method = os.getenv('agg_method', 'mean_sq') # "mean_abs", "median", "mean_sq"
     probability_attribute = json.loads(os.getenv('probability_attribute','{}')) or None # The column in the dataset that contains probabilities.
     probability_threshold_attribute=json.loads(os.getenv('probability_threshold_attribute','{}')) or None
-    
+
+    # model config
+    model_name = os.getenv('model_name', '') or None
+    instance_count = int(os.getenv('instance_count', '1'))
+    instance_type = os.getenv('instance_type', 'ml.m5.xlarge')
+    content_type = os.getenv('content_type', 'text/csv')
+    content_template = os.getenv('content_template', '') or None
+    record_template = os.getenv('record_template', '') or None
+    custom_attributes = os.getenv('custom_attributes', '') or None
+    accelerator_type = os.getenv('accelerator_type', '') or None
+    endpoint_name_prefix = os.getenv('endpoint_name_prefix', '') or None
+    target_model = os.getenv('target_model', '') or None
+    endpoint_name = os.getenv('endpoint_name', '') or None
+    time_series_model_config =json.loads(os.getenv('time_series_model_config','{}')) or None
+    model_config={}
+    if model_name: model_config['model_name'] = model_name
+    if instance_count: model_config['instance_count'] = instance_count
+    if instance_type: model_config['instance_type'] = instance_type
+    if content_type: model_config['accept_type'] = content_type
+    if content_type: model_config['content_type'] = content_type
+    if content_template: model_config['content_template'] = content_template
+    if record_template: model_config['record_template'] = record_template
+    if custom_attributes: model_config['custom_attributes'] = custom_attributes
+    if accelerator_type: model_config['accelerator_type'] = accelerator_type
+    if endpoint_name_prefix: model_config['endpoint_name_prefix'] = endpoint_name_prefix
+    if target_model: model_config['target_model'] = target_model
+    if endpoint_name: model_config['endpoint_name'] = endpoint_name
+    if time_series_model_config:
+        if 'forecast' in time_series_model_config:
+            model_config['time_series_model_config'] = CfyTimeSeriesModelConfig(forecast=time_series_model_config['forecast'])
+        else:
+            model_config['time_series_model_config'] = CfyTimeSeriesModelConfig()
+
+    print(f"ENV\n \
+        role: {role}\n \
+        baseline_full_dataset: {baseline_full_dataset}\n \
+        output_s3_uri: {output_s3_uri}\n \
+        dataset_format: {dataset_format}\n \
+        instance_count: {instance_count}\n \
+        instance_type: {instance_type}\n \
+        volume_size_in_gb: {volume_size_in_gb}\n \
+        max_runtime_in_seconds: {max_runtime_in_seconds}\n \
+        execution_id: {execution_id}\n \
+        problem_type: {problem_type}\n \
+        predict_label: {predict_label}\n \
+        target_label: {target_label}\n \
+        model_name: {model_name}\n \
+        model_config: {model_config}\n \
+        bias_config: {bias_config}\n \
+        model_predicted_label_config: {model_predicted_label_config}\n \
+        content_type: {content_type}\n \
+        num_samples: {num_samples}\n \
+        agg_method: {agg_method}\n \
+        probability_attribute: {probability_attribute}\n \
+        probability_threshold_attribute: {probability_threshold_attribute}\n")
+
     if monitor_type == 'DataQuality':
         baselining_job_name = create_dq_baseline_handler(
             role,
@@ -345,32 +375,28 @@ if __name__ == '__main__':
     elif monitor_type == 'ModelBias':
         baselining_job_name = create_mb_baseline_handler(
             role,
-            model_name,
             baseline_full_dataset, # pred + target + [features]
             output_s3_uri,
             target_label,
             predict_label,
+            model_config,
             bias_config,
             model_predicted_label_config,
             content_type,
-            instance_count,
-            instance_type,
             max_runtime_in_seconds,
             execution_id
         )
     elif monitor_type == 'ModelExplainability':
         baselining_job_name = create_me_baseline_handler(
             role,
-            model_name,
             baseline_full_dataset,  # pred + [features]
             output_s3_uri,
             target_label,
             predict_label,
+            model_config,
             num_samples,
             agg_method,
             content_type,
-            instance_count,
-            instance_type,
             max_runtime_in_seconds,
             execution_id
         )

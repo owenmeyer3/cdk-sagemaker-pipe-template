@@ -10,6 +10,7 @@ from aws_cdk import (
 )
 from custom_constructs.CECS import ECSFargate
 
+
 def get_dq_bl(
     scope, 
     construct_id, 
@@ -72,7 +73,6 @@ def get_mq_bl(
     volume_size_in_gb=20,
     max_runtime_in_seconds=3600
 ):
-
     environment={
         'monitor_type':'ModelQuality',
         'role':monitor_role.role_arn,
@@ -99,6 +99,7 @@ def get_mq_bl(
         log_driver_config={},
         task_config={'environment':environment, 'cluster':cluster, 'network':network}
     )
+
 
 def get_mb_bl(
     scope, 
@@ -169,7 +170,7 @@ def get_me_bl(
     instance_type='ml.m5.xlarge',
     max_runtime_in_seconds=3600,
     num_samples=100
-):
+):      
     environment={
         'monitor_type':'ModelExplainability',
         'role':monitor_role.role_arn,

@@ -195,8 +195,8 @@ class SagemakerPipeTemplateStack(Stack):
             baseline_full_dataset_lkp,
             self.target_label,
             self.predict_label,
-            # model_predicted_label_config={'probability_threshold':0.8},
-            # bias_config = {'label_values_or_threshold':[1], 'function':"Account Length", 'facet_values_or_threshold':[100]}
+            model_predicted_label_config={'label':None, 'probability':None, 'probability_threshold':None, 'label_headers':None},
+            bias_config = {'label_values_or_threshold':[1], 'facet_name':'sex_F', 'facet_values_or_threshold':None, 'group_name':None}
         )
         mb_baseline_job_name_lkp = f'{mb_baseline_ecs.task._result_path}.BASELINING_JOB_NAME'
 
@@ -215,12 +215,11 @@ class SagemakerPipeTemplateStack(Stack):
             self.predict_label,
         )
         me_baseline_job_name_lkp = f'{me_baseline_ecs.task._result_path}.BASELINING_JOB_NAME'
-        
-        parallel_baseline_jobs=stepfunctions.Parallel(self, 'ParallelBaselineJobs') \
-            .branch(mb_baseline_ecs.task) \
-            .branch(me_baseline_ecs.task)
-            # .branch(dq_baseline_ecs.task) \
-            # .branch(mq_baseline_ecs.task) \
+
+        mon_baseline_jobs=      stepfunctions.Parallel(self, 'MonitorBaselineJobs', result_path='$.MonitorBaselineJobs').branch(dq_baseline_ecs.task).branch(mq_baseline_ecs.task)
+        clarify_baseline_jobs=  stepfunctions.Parallel(self, 'ClarifyBaselineJobs', result_path='$.ClarifyBaselineJobs').branch(mb_baseline_ecs.task).branch(me_baseline_ecs.task)
+        parallel_baseline_jobs= mon_baseline_jobs.next(clarify_baseline_jobs)
+
 
 
         # RT DEPLOY
@@ -300,7 +299,7 @@ class SagemakerPipeTemplateStack(Stack):
         )
         conditional_schedule_mb_tasks = schedule_mb_mon_choice.when(schedule_mb_mon_cond, schedule_mb_lambda.task).afterwards()
 
-        parallel_monitor_scheduler=stepfunctions.Parallel(self, 'ParallelMonitorScheduler') \
+        parallel_monitor_scheduler=stepfunctions.Parallel(self, 'ParallelMonitorScheduler', result_path='$.ParallelMonitorScheduler') \
             .branch(conditional_schedule_dq_tasks) \
             .branch(conditional_schedule_mq_tasks) \
             .branch(conditional_schedule_me_tasks) \
@@ -331,8 +330,8 @@ class SagemakerPipeTemplateStack(Stack):
         check_mb_lambda = e_lambdas.check_mb_task_lambda(self, 'CheckMB', f'{self.name}-check-mb', self.lambda_execution_role)
         conditional_check_mb_tasks = check_mb_mon_choice.when(check_mb_mon_cond, check_mb_lambda.task).afterwards()
 
-        pre_transform_parallel_monitor_checker = stepfunctions.Parallel(self, 'PreTransformMonitorChecker').branch(conditional_check_me_tasks).branch(conditional_check_dq_tasks)
-        post_transform_parallel_monitor_checker = stepfunctions.Parallel(self, 'PostTransformMonitorChecker').branch(conditional_check_mq_tasks).branch(conditional_check_mb_tasks)
+        pre_transform_parallel_monitor_checker = stepfunctions.Parallel(self, 'PreTransformMonitorChecker', result_path='$.PreTransformMonitorChecker').branch(conditional_check_me_tasks).branch(conditional_check_dq_tasks)
+        post_transform_parallel_monitor_checker = stepfunctions.Parallel(self, 'PostTransformMonitorChecker', result_path='$.PostTransformMonitorChecker').branch(conditional_check_mq_tasks).branch(conditional_check_mb_tasks)
 
 
         # SUB CHAINS
