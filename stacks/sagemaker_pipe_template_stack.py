@@ -16,9 +16,9 @@ from aws_cdk import (
 )
 from constructs import Construct
 from custom_constructs.CNetwork import Network
-import custom_functions.e_lambdas as e_lambdas
-import custom_functions.e_ecs as e_ecs
-import custom_functions.sagemaker_tasks as sagemaker_tasks 
+import custom_functions.c_lambda as c_lambda
+import custom_functions.c_ecs as c_ecs
+import custom_functions.c_sm as c_sm 
 
 class SagemakerPipeTemplateStack(Stack):
 
@@ -114,17 +114,26 @@ class SagemakerPipeTemplateStack(Stack):
         check_mb_mon_cond =   stepfunctions.Condition.string_equals(self.enable_model_bias_check_lkp, "TRUE")
 
         # CREATE
-        get_or_create_model_from_registry_lambda = e_lambdas.get_get_or_create_model_from_registry_lambda(self, 'GetOrCreateModel', f'{self.name}-get-or-create-model', self.lambda_execution_role, self.model_package_group_name, self.model_package_version_lkp, self.lambda_execution_role)
+        get_or_create_model_from_registry_lambda = c_lambda.get_get_or_create_model_from_registry_lambda(self, 'GetOrCreateModel', f'{self.name}-get-or-create-model', self.lambda_execution_role, self.model_package_group_name, self.model_package_version_lkp, self.lambda_execution_role)
         model_name_lkp =        f'{get_or_create_model_from_registry_lambda.task._result_path}.MODEL_NAME'
         model_package_arn_lkp = f'{get_or_create_model_from_registry_lambda.task._result_path}.MODEL_PACKAGE_ARN'
 
         # BASELINE
-        prep_baseline_sets_lambda = e_lambdas.prep_baseline_sets_lambda(self, 'PrepBaselineSets', f'{self.name}-prep-baseline-sets', self.lambda_execution_role, self.baseline_file_lkp, self.target_label, self.target_type, self.baseline_dir, baseline_cols_lkp=self.baseline_cols_lkp, layers=[self.pandas_layer_version])
+        prep_baseline_sets_lambda = c_lambda.prep_baseline_sets_lambda(self, 'PrepBaselineSets', f'{self.name}-prep-baseline-sets', self.lambda_execution_role, self.baseline_file_lkp, self.target_label, self.target_type, self.baseline_dir, baseline_cols_lkp=self.baseline_cols_lkp, layers=[self.pandas_layer_version])
         baseline_headered_file_lkp = f'{prep_baseline_sets_lambda.task._result_path}.BASELINE_HEADERED_FILE'
         baseline_X_file_lkp = f'{prep_baseline_sets_lambda.task._result_path}.BASELINE_X_FILE'
         baseline_X_filename_lkp = f'{prep_baseline_sets_lambda.task._result_path}.BASELINE_X_FILENAME'
 
-        baseline_transform_chain, baseline_transform_end, baseline_transform_out_dir_lkp = sagemaker_tasks.get_transform_task(
+        # baseline_transform_chain, baseline_transform_end, baseline_transform_out_dir_lkp = c_sm.get_transform_task(
+        #     scope, 
+        #     'BaselineTransform', 
+        #     f'{self.name}-bl-transform-job', 
+        #     model_name_lkp,
+        #     self.transform_instance_type_lkp, 
+        #     s3_data_source_lkp=baseline_X_file_lkp, 
+        #     transform_out_dir=self.baseline_dir
+        # ) 
+        baseline_transform_task = c_sm.get_transform_task(
             scope, 
             'BaselineTransform', 
             f'{self.name}-bl-transform-job', 
@@ -133,8 +142,11 @@ class SagemakerPipeTemplateStack(Stack):
             s3_data_source_lkp=baseline_X_file_lkp, 
             transform_out_dir=self.baseline_dir
         ) 
+        print("HEEERRREEE")
+        print(baseline_transform_task.to_state_json())
+        baseline_transform_out_dir_lkp=f'{baseline_transform_task.to_state_json()["ResultPath"]}.TransformOutput.S3OutputPath'
 
-        get_baseline_preds_lambda = e_lambdas.get_baseline_preds_lambda(
+        get_baseline_preds_lambda = c_lambda.get_baseline_preds_lambda(
             self, 
             'GetBaselinePreds', 
             f'{self.name}-get-baseline-preds', 
@@ -151,7 +163,7 @@ class SagemakerPipeTemplateStack(Stack):
         baseline_pred_file_lkp = f'{get_baseline_preds_lambda.task._result_path}.BASELINE_PRED_FILE'
         baseline_full_dataset_lkp = f'{get_baseline_preds_lambda.task._result_path}.BASELINE_FULL_FILE'
 
-        dq_baseline_ecs=e_ecs.get_dq_bl(
+        dq_baseline_ecs=c_ecs.get_dq_bl(
             self, 
             'DQBaselineJob', 
             f'{self.name}-dq-baseline', 
@@ -166,7 +178,7 @@ class SagemakerPipeTemplateStack(Stack):
         )
         dq_baseline_job_name_lkp = f'{dq_baseline_ecs.task._result_path}.BASELINING_JOB_NAME'
 
-        mq_baseline_ecs=e_ecs.get_mq_bl(
+        mq_baseline_ecs=c_ecs.get_mq_bl(
             self, 
             'MQBaselineJob', 
             f'{self.name}-mq-baseline-fn',
@@ -182,7 +194,7 @@ class SagemakerPipeTemplateStack(Stack):
         )
         mq_baseline_job_name_lkp = f'{mq_baseline_ecs.task._result_path}.BASELINING_JOB_NAME'
 
-        mb_baseline_ecs = e_ecs.get_mb_bl(
+        mb_baseline_ecs = c_ecs.get_mb_bl(
             self, 
             'MBBaselineJob', 
             f'{self.name}-mb-baseline',
@@ -200,7 +212,7 @@ class SagemakerPipeTemplateStack(Stack):
         )
         mb_baseline_job_name_lkp = f'{mb_baseline_ecs.task._result_path}.BASELINING_JOB_NAME'
 
-        me_baseline_ecs = e_ecs.get_me_bl(
+        me_baseline_ecs = c_ecs.get_me_bl(
             self, 
             'MEBaselineJob', 
             f'{self.name}-me-baseline',
@@ -223,7 +235,7 @@ class SagemakerPipeTemplateStack(Stack):
 
 
         # RT DEPLOY
-        deploy_endpoint_lambda = e_lambdas.deploy_endpoint_lambda(
+        deploy_endpoint_lambda = c_lambda.deploy_endpoint_lambda(
             self,
             'DeployEndpoint', f'{self.name}-deploy-endpoint', self.lambda_execution_role,
             model_name_lkp, 
@@ -235,7 +247,7 @@ class SagemakerPipeTemplateStack(Stack):
         endpoint_name_lkp = f'{deploy_endpoint_lambda.task._result_path}.ENDPOINT_NAME'
         
         # MONITOR SCHEDULES
-        schedule_dq_lambda = e_lambdas.schedule_dq_task_lambda(
+        schedule_dq_lambda = c_lambda.schedule_dq_task_lambda(
             self, 
             'ScheduleDQ', f'{self.name}-schedule-dq', self.lambda_execution_role, 'dq-mon', 
             endpoint_name_lkp,
@@ -250,7 +262,7 @@ class SagemakerPipeTemplateStack(Stack):
         )
         conditional_schedule_dq_tasks = schedule_dq_mon_choice.when(schedule_dq_mon_cond, schedule_dq_lambda.task)
 
-        schedule_mq_lambda = e_lambdas.schedule_mq_task_lambda(
+        schedule_mq_lambda = c_lambda.schedule_mq_task_lambda(
             self, 
             'ScheduleMQ', f'{self.name}-schedule-mq', self.lambda_execution_role, 'mq-mon',
             endpoint_name_lkp,
@@ -268,7 +280,7 @@ class SagemakerPipeTemplateStack(Stack):
         )
         conditional_schedule_mq_tasks = schedule_mq_mon_choice.when(schedule_mq_mon_cond, schedule_mq_lambda.task).afterwards()
 
-        schedule_me_lambda = e_lambdas.schedule_me_task_lambda(
+        schedule_me_lambda = c_lambda.schedule_me_task_lambda(
             self, 
             'ScheduleME', f'{self.name}-schedule-me', self.lambda_execution_role, 'me-mon', 
             endpoint_name_lkp,
@@ -283,7 +295,7 @@ class SagemakerPipeTemplateStack(Stack):
         )
         conditional_schedule_me_tasks = schedule_me_mon_choice.when(schedule_me_mon_cond, schedule_me_lambda.task).afterwards()
 
-        schedule_mb_lambda = e_lambdas.schedule_mb_task_lambda(
+        schedule_mb_lambda = c_lambda.schedule_mb_task_lambda(
             self, 
             'ScheduleMB', f'{self.name}-schedule-mb', self.lambda_execution_role, 'mb-mon', 
             endpoint_name_lkp,
@@ -311,7 +323,16 @@ class SagemakerPipeTemplateStack(Stack):
         # batch_transform_job_name_lkp = f'{baseline_transform_lambda.task._result_path}.JOB_NAME'
         # batch_transform_out_dir_lkp = f'{baseline_transform_lambda.task._result_path}.OUTPUT_PATH' # "s3://bucket/output/"
         # batch_transform_status_lkp = f'{baseline_transform_lambda.task._result_path}.STATUS'
-        batch_transform_chain, batch_transform_end, batch_transform_out_dir_lkp = sagemaker_tasks.get_transform_task(
+        # batch_transform_chain, batch_transform_end, batch_transform_out_dir_lkp = c_sm.get_transform_task(
+        #     self, 
+        #     'BatchTransform', 
+        #     f'{self.name}-batch-transform-job', 
+        #     model_name_lkp, 
+        #     self.transform_instance_type_lkp, 
+        #     s3_data_source_lkp=self.batch_input_dir_lkp, 
+        #     transform_out_dir=self.batch_out_dir
+        # ) 
+        batch_transform_task = c_sm.get_transform_task(
             self, 
             'BatchTransform', 
             f'{self.name}-batch-transform-job', 
@@ -320,26 +341,27 @@ class SagemakerPipeTemplateStack(Stack):
             s3_data_source_lkp=self.batch_input_dir_lkp, 
             transform_out_dir=self.batch_out_dir
         ) 
+        batch_transform_out_dir_lkp=f'{batch_transform_task.to_state_json()["ResultPath"]}.TransformOutput.S3OutputPath'
 
-        check_dq_lambda = e_lambdas.check_dq_task_lambda(self, 'CheckDQ', f'{self.name}-check-dq', self.lambda_execution_role)
+        check_dq_lambda = c_lambda.check_dq_task_lambda(self, 'CheckDQ', f'{self.name}-check-dq', self.lambda_execution_role)
         conditional_check_dq_tasks = check_dq_mon_choice.when(check_dq_mon_cond, check_dq_lambda.task).afterwards()
-        check_mq_lambda = e_lambdas.check_mq_task_lambda(self, 'CheckMQ', f'{self.name}-check-mq', self.lambda_execution_role)
+        check_mq_lambda = c_lambda.check_mq_task_lambda(self, 'CheckMQ', f'{self.name}-check-mq', self.lambda_execution_role)
         conditional_check_mq_tasks = check_mq_mon_choice.when(check_mq_mon_cond, check_mq_lambda.task).afterwards()
-        check_me_lambda = e_lambdas.check_me_task_lambda(self, 'CheckME', f'{self.name}-check-me', self.lambda_execution_role)
+        check_me_lambda = c_lambda.check_me_task_lambda(self, 'CheckME', f'{self.name}-check-me', self.lambda_execution_role)
         conditional_check_me_tasks = check_me_mon_choice.when(check_me_mon_cond, check_me_lambda.task).afterwards()
-        check_mb_lambda = e_lambdas.check_mb_task_lambda(self, 'CheckMB', f'{self.name}-check-mb', self.lambda_execution_role)
+        check_mb_lambda = c_lambda.check_mb_task_lambda(self, 'CheckMB', f'{self.name}-check-mb', self.lambda_execution_role)
         conditional_check_mb_tasks = check_mb_mon_choice.when(check_mb_mon_cond, check_mb_lambda.task).afterwards()
 
-        pre_transform_parallel_monitor_checker = stepfunctions.Parallel(self, 'PreTransformMonitorChecker', result_path='$.PreTransformMonitorChecker').branch(conditional_check_me_tasks).branch(conditional_check_dq_tasks)
-        post_transform_parallel_monitor_checker = stepfunctions.Parallel(self, 'PostTransformMonitorChecker', result_path='$.PostTransformMonitorChecker').branch(conditional_check_mq_tasks).branch(conditional_check_mb_tasks)
-
+        pre_transform_parallel_monitor_checker=conditional_check_dq_tasks
+        post_transform_parallel_monitor_checker = stepfunctions.Parallel(self, 'PostTransformMonitorChecker', result_path='$.PostTransformMonitorChecker').branch(conditional_check_mq_tasks).branch(conditional_check_mb_tasks).branch(conditional_check_me_tasks)
 
         # SUB CHAINS
 
         ### baseline_chain ###
         # Wire all exits
-        baseline_transform_end.next(get_baseline_preds_lambda.task).next(parallel_baseline_jobs)
-        baseline_chain = prep_baseline_sets_lambda.task.next(baseline_transform_chain)
+        # baseline_transform_end.next(get_baseline_preds_lambda.task).next(parallel_baseline_jobs)
+        # baseline_chain = prep_baseline_sets_lambda.task.next(baseline_transform_chain)
+        baseline_chain = prep_baseline_sets_lambda.task.next(baseline_transform_task).next(get_baseline_preds_lambda.task).next(parallel_baseline_jobs)
 
         ### deploy_chain ###
         deploy_chain = None
@@ -352,9 +374,22 @@ class SagemakerPipeTemplateStack(Stack):
         if(self.deploy_type == 'realtime'):
             inference_chain = pre_transform_parallel_monitor_checker.next(post_transform_parallel_monitor_checker)
         else:
-            batch_transform_end.next(post_transform_parallel_monitor_checker)
-            inference_chain = pre_transform_parallel_monitor_checker.next(batch_transform_chain)
+            # batch_transform_end.next(post_transform_parallel_monitor_checker)
+            # inference_chain = pre_transform_parallel_monitor_checker.next(batch_transform_chain)
+            inference_chain = pre_transform_parallel_monitor_checker.next(batch_transform_task).next(post_transform_parallel_monitor_checker)
 
+        # # FULL CHAIN
+        # chain=state_machine_start.next(get_or_create_model_from_registry_lambda.task) \
+        #     .next( \
+        #         rebaseline_choice.when(rebaseline_cond, baseline_chain).otherwise(action_choice).afterwards() \
+        #     ).next( \
+        #         action_choice.when(action_cond, \
+        #             deploy_chain \
+        #         ).otherwise( \
+        #             inference_chain \
+        #         ).afterwards() \
+        #     ).next(statemachine_end)     
+        
         # FULL CHAIN
         chain=state_machine_start.next(get_or_create_model_from_registry_lambda.task) \
             .next( \
@@ -365,8 +400,7 @@ class SagemakerPipeTemplateStack(Stack):
                 ).otherwise( \
                     inference_chain \
                 ).afterwards() \
-            ).next(statemachine_end)     
-        
+            ).next(statemachine_end)   
         # STATE MACHINE
         state_machine=stepfunctions.StateMachine(
             self, "SM",

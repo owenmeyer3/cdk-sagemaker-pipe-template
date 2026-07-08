@@ -265,22 +265,18 @@ if __name__ == '__main__':
     monitor_type = os.getenv('monitor_type')
     print('monitor_type ' + monitor_type)
 
-    role = os.getenv('role')
+    role = os.getenv('role', '')
     baseline_full_dataset = os.getenv('baseline_full_dataset', '')
     output_s3_uri = os.getenv('output_s3_uri', '')
     dataset_format = json.loads(os.getenv('dataset_format', '{"csv": {"header": true}}'))
-    
-    
     volume_size_in_gb = int(os.getenv('volume_size_in_gb', '20'))
     max_runtime_in_seconds = int(os.getenv('max_runtime_in_seconds', '3600'))
     execution_id = os.getenv('execution_id')
     problem_type = os.getenv('problem_type', '')
     predict_label = os.getenv('predict_label', '') # The column in the dataset that contains predictions.
     target_label = os.getenv('target_label', '') # The column in the dataset that contains ground truth labels.
-    
     bias_config = json.loads(os.getenv('bias_config','{}')) or None # {'label_values_or_threshold':[1], 'function':"Account Length", 'facet_values_or_threshold':[100]}
     model_predicted_label_config = json.loads(os.getenv('model_predicted_label_config','{}')) or None # {'probability_threshold':0.8}
-    
     num_samples = int(os.getenv('num_samples', '100'))
     agg_method = os.getenv('agg_method', 'mean_sq') # "mean_abs", "median", "mean_sq"
     probability_attribute = json.loads(os.getenv('probability_attribute','{}')) or None # The column in the dataset that contains probabilities.
@@ -317,29 +313,6 @@ if __name__ == '__main__':
             model_config['time_series_model_config'] = CfyTimeSeriesModelConfig(forecast=time_series_model_config['forecast'])
         else:
             model_config['time_series_model_config'] = CfyTimeSeriesModelConfig()
-
-    print(f"ENV\n \
-        role: {role}\n \
-        baseline_full_dataset: {baseline_full_dataset}\n \
-        output_s3_uri: {output_s3_uri}\n \
-        dataset_format: {dataset_format}\n \
-        instance_count: {instance_count}\n \
-        instance_type: {instance_type}\n \
-        volume_size_in_gb: {volume_size_in_gb}\n \
-        max_runtime_in_seconds: {max_runtime_in_seconds}\n \
-        execution_id: {execution_id}\n \
-        problem_type: {problem_type}\n \
-        predict_label: {predict_label}\n \
-        target_label: {target_label}\n \
-        model_name: {model_name}\n \
-        model_config: {model_config}\n \
-        bias_config: {bias_config}\n \
-        model_predicted_label_config: {model_predicted_label_config}\n \
-        content_type: {content_type}\n \
-        num_samples: {num_samples}\n \
-        agg_method: {agg_method}\n \
-        probability_attribute: {probability_attribute}\n \
-        probability_threshold_attribute: {probability_threshold_attribute}\n")
 
     if monitor_type == 'DataQuality':
         baselining_job_name = create_dq_baseline_handler(

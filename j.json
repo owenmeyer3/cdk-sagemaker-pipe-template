@@ -1,106 +1,31 @@
 {
-    "Cluster": "arn:aws:ecs:us-east-1:088461143167:cluster/omm-test-cluster",
-    "TaskDefinition": "abalone-me-baseline",
-    "NetworkConfiguration": {
-        "AwsvpcConfiguration": {
-            "Subnets": [
-                "subnet-001be661bcef4b615",
-                "subnet-003ad32933ca43e74"
-            ],
-            "SecurityGroups": [
-                "sg-06ace6a777916bbec"
-            ]
+    "End": True,
+    "Type": "Task",
+    "Resource": "arn:aws:states:::sagemaker:createTransformJob",
+    "Parameters": {
+        "TransformJobName.$": "States.Format("abalone-bl-transform-job-{}", $$.Execution.Name)",
+        "ModelName.$": "$.GetOrCreateModelTask.MODEL_NAME",
+        "ModelClientConfig": {
+            "InvocationsMaxRetries": 3,
+            "InvocationsTimeoutInSeconds": 300
+        },
+        "TransformInput": {
+            "DataSource": {
+                "S3DataSource": {
+                    "S3Uri.$": "$.PrepBaselineSetsTask.BASELINE_X_FILE",
+                    "S3DataType": "S3Prefix"
+                }
+            },
+            "ContentType": "text/csv",
+            "SplitType": "Line"
+        },
+        "TransformOutput": {
+            "S3OutputPath": "s3://omm-test-bucket/pipelines/abalone/baseline"
+        },
+        "TransformResources": {
+            "InstanceCount": 1,
+            "InstanceType.$": "$.TRANSFORM_INSTANCE_TYPE"
         }
     },
-    "Overrides": {
-        "ContainerOverrides": [
-            {
-                "Name": "abalone-me-baseline",
-                "Environment": [
-                    {
-                        "Name": "monitor_type",
-                        "Value": "ModelExplainability"
-                    },
-                    {
-                        "Name": "role",
-                        "Value": "arn:aws:iam::088461143167:role/SageMakerExecutionRole-1"
-                    },
-                    {
-                        "Name": "model_name",
-                        "Value": "abalone-1"
-                    },
-                    {
-                        "Name": "baseline_dataset",
-                        "Value": "s3://omm-test-bucket/pipelines/abalone/model-explainability/baseline.csv"
-                    },
-                    {
-                        "Name": "output_s3_uri",
-                        "Value": "s3://omm-test-bucket/pipelines/abalone/model-explainability/info"
-                    },
-                    {
-                        "Name": "label",
-                        "Value": "rings"
-                    },
-                    {
-                        "Name": "baseline_cols",
-                        "Value": [
-                            "rings",
-                            "length",
-                            "diameter",
-                            "height",
-                            "whole_weight",
-                            "shucked_weight",
-                            "viscera_weight",
-                            "shell_weight",
-                            "sex_F",
-                            "sex_I",
-                            "sex_M"
-                        ]
-                    },
-                    {
-                        "Name": "test_X_dataset",
-                        "Value": "s3://omm-test-bucket/pipelines/abalone/baseline/baseline_X.csv"
-                    },
-                    {
-                        "Name": "num_samples",
-                        "Value": "100"
-                    },
-                    {
-                        "Name": "agg_method",
-                        "Value": "mean_sq"
-                    },
-                    {
-                        "Name": "content_type",
-                        "Value": "text/csv"
-                    },
-                    {
-                        "Name": "instance_count",
-                        "Value": "1"
-                    },
-                    {
-                        "Name": "instance_type",
-                        "Value": "ml.m5.xlarge"
-                    },
-                    {
-                        "Name": "volume_size_in_gb",
-                        "Value": "20"
-                    },
-                    {
-                        "Name": "max_runtime_in_seconds",
-                        "Value": "3600"
-                    },
-                    {
-                        "Name": "execution_id",
-                        "Value": "ddfd454c-3f88-4f29-a3bf-27f781b7ad52"
-                    },
-                    {
-                        "Name": "TASK_TOKEN",
-                        "Value": "AQCAAAAAKgAAAAMAAAAAAAAAAc2XBA62msBDW+xjZzyuq9/aly7Y694wOoJHAGwudxTu8Xh8ubTelSSZdiBoEZbuDYpNYFZckGEmycAQLngwtbt/JZKKZEEbOFXJ9Bi7AHg=F/qEEqPNw7swU6yisd+5U9n48opXgpKZvwRobI4807KYgdIQVgKqdCmFIaP/tusV3N63Fwi6JMrhR0a/iwe6TlMd5lhRhzaSRJ7jOda1vuLVzenaogzX1bc3PM2TXUTE57RL2wFEl6cyGg4y9r9wBNoM0jTC8ODzV3bQnCb50xQpwaLDQz68GWI8jJaI7FWRg6NPaKsK4hkEyaoKz7kTZpJO/OYXF+ri/lkb4mCiEE8GfnDL4FrLgsXnjhtCFgepoMxoidNfoSbKA3ruNYMi76nsLsLqB3SgHVKFsJMfBGunbeCd8GsqTRsgaq8dsCiK7P0aULNZ26/Dsh5GY7fnAAczX2fj39q78JRNQL3uwUr7ZdeAfcqzvcSfwAhVuM7/2Lc9dUDRZk318n61AfebjuAvIIDGvG/jzwUsCiB/gJ465o3fJ65SqrWWr/ZaBaBSQAwXOz8LfRrHUkXXru8XVIwEYFrZlLWfQzVCEvPAYVPHeFpGUfOSckQG6L8O3ZLjvwKyxH2nmT+TYe365NdP"
-                    }
-                ]
-            }
-        ]
-    },
-    "LaunchType": "FARGATE",
-    "PlatformVersion": "LATEST"
+    "ResultPath": "$.BaselineTransformTask"
 }
