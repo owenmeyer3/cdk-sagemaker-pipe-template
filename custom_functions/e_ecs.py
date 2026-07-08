@@ -157,7 +157,7 @@ def get_me_bl(
     family,
     repo,
     model_name_lkp,
-    monitor_role, 
+    monitor_role,
     monitor_dir,
     cluster,
     network,

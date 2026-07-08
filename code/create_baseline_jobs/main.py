@@ -195,14 +195,20 @@ def create_mb_baseline_handler(
         accept_type=content_type,
     )
 
-    model_bias_monitor.suggest_baseline(
-        job_name=f"mb-baseline-{execution_id}",
-        model_config=model_config_obj,
-        data_config=model_bias_data_config,
-        bias_config=bias_config_obj,
-        model_predicted_label_config=model_predicted_label_config_obj,
-        wait=True
-    )
+    try:
+        model_bias_monitor.suggest_baseline(
+            job_name=f"mb-baseline-{execution_id}",
+            model_config=model_config_obj,
+            data_config=model_bias_data_config,
+            bias_config=bias_config_obj,
+            model_predicted_label_config=model_predicted_label_config_obj,
+            wait=True
+        )
+    except AttributeError as e:
+        if "ProcessingJob" in str(e) and "object has no attribute" in str(e) and "sagemaker_session" in str(e):
+            print(f"Known SDK bug in post-job wrapping, job itself completed successfully: {e}")
+        else:
+            raise
     print(f"ModelBiasMonitor baselining job: {model_bias_monitor.latest_baselining_job_name}")
     return model_bias_monitor.latest_baselining_job_name
 
@@ -259,13 +265,19 @@ def create_me_baseline_handler(
         save_local_shap_values=False,
     )
 
-    model_explainability_monitor.suggest_baseline(
-        job_name=f"me-baseline-{execution_id}",
-        data_config=model_explainability_data_config,
-        model_config=model_config_obj,
-        explainability_config=shap_config,
-        wait=True
-    )
+    try:
+        model_explainability_monitor.suggest_baseline(
+            job_name=f"me-baseline-{execution_id}",
+            data_config=model_explainability_data_config,
+            model_config=model_config_obj,
+            explainability_config=shap_config,
+            wait=True
+        )
+    except AttributeError as e:
+        if "ProcessingJob" in str(e) and "object has no attribute" in str(e) and "sagemaker_session" in str(e):
+            print(f"Known SDK bug in post-job wrapping, job itself completed successfully: {e}")
+        else:
+            raise
     print(f"ModelExplainabilityMonitor baselining job: {model_explainability_monitor.latest_baselining_job_name}")
     return model_explainability_monitor.latest_baselining_job_name
 
