@@ -4,7 +4,9 @@ import aws_cdk as cdk
 from stacks.sagemaker_pipe_template_stack import SagemakerPipeTemplateStack
 
 
-app = cdk.App()
+app = cdk.App(context={
+    "@aws-cdk/aws-lambda:useCdkManagedLogGroup": False,
+})
 env_name=app.node.try_get_context("env")
 
 # Get configurations for project and cli specified env 

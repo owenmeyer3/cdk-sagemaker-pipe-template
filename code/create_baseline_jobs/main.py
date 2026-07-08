@@ -6,10 +6,7 @@ from sagemaker.core.model_monitor.clarify_model_monitoring import ModelBiasMonit
 from sagemaker.core.clarify import DataConfig as CfyDataConfig, BiasConfig as CfyBiasConfig, ModelConfig as CfyModelConfig, ModelPredictedLabelConfig as CfyModelPredictedLabelConfig, SHAPConfig as CfySHAPConfig
 import pandas as pd 
 from urllib.parse import urlparse
-import boto3, os, json, sys, logging
-
-logger = logging.getLogger('Log')
-logging.basicConfig(level=logging.INFO)
+import boto3, os, json, sys, io
 
 stepfunctions = boto3.client('stepfunctions')
 s3_client = boto3.client('s3')
@@ -19,7 +16,7 @@ def report_success(stepfunctions, state):
     sys.exit(0)
 
 def report_failure(stepfunctions, error_message):
-    logger.error(f'MANUAL ERROR: {error_message}')
+    print(f'MANUAL ERROR: {error_message}')
     stepfunctions.send_task_failure(taskToken=os.getenv('TASK_TOKEN'), error="ECSFailure", cause=error_message)
 
 def get_dataset_format(dataset_format):
@@ -30,28 +27,53 @@ def get_dataset_format(dataset_format):
     else:
         return None
 
+def get_bkt_key(s3_uri):
+    parsed = urlparse(s3_uri)
+    return [parsed.netloc, parsed.path.lstrip('/')]
 
 def load_csv_from_s3(s3_uri, header=None):
-    parsed = urlparse(s3_uri)
-    bucket = parsed.netloc
-    key = parsed.path.lstrip('/')
-    local_path = '/tmp/' + key.split('/')[-1]
-    s3_client.download_file(bucket, key, local_path)
-    return pd.read_csv(local_path, header=header)
+    bucket, key = get_bkt_key(s3_uri)
+    s3_client.download_file(bucket, key, '/tmp/tmp.csv')
+    return pd.read_csv('/tmp/tmp.csv', header=header)
+
+def write_csv_to_s3(df, s3_uri, index=False, header=None, drop_cols=[]):
+    bucket, key = get_bkt_key(s3_uri)
+    if drop_cols: df = df.drop(columns=drop_cols)
+    buffer = io.StringIO()
+    df.to_csv(buffer, index=index, header=header)
+    s3_client.put_object(Bucket=bucket, Key=key, Body=buffer.getvalue())
+
+
+def parse_csv_and_headers_s3(s3_uri, sfx='out', drop_cols=[], target_to_shift=None):
+
+    df = load_csv_from_s3(s3_uri, header=0)
+    if target_to_shift: df = df[[target_to_shift] + [c for c in df.columns if c != target_to_shift]]
+    if drop_cols: df = df.drop(columns=drop_cols)
+    headers = list(df.columns)
+
+    s3_uri_out=s3_uri.split('.')[0] + '_' + sfx + '.' + s3_uri.split('.')[1]
+    write_csv_to_s3(df, s3_uri_out, index=False, header=False)
+
+    return [s3_uri_out, headers]
 
 
 def create_dq_baseline_handler(            
     role,
-    baseline_dataset,
+    baseline_full_dataset, # [features] must be compliant with Spark. For column names, use only lowercase characters, and _ as the only special character
     output_s3_uri,
-    dataset_format,
+    target_label,
+    predict_label,
+    dataset_format, # include headers
     instance_count,
     instance_type,
     volume_size_in_gb,
     max_runtime_in_seconds,
     execution_id
 ):
-    logger.info('DQ')
+    baseline_df=load_csv_from_s3(baseline_full_dataset, header=0)
+    baseline_df = baseline_df.drops(columns=[target_label, predict_label])
+    baseline_df.to_csv('/tmp/dq.csv', index=False, header=True)
+
     my_default_monitor = DefaultModelMonitor(
         role=role,
         instance_count=instance_count,
@@ -62,31 +84,35 @@ def create_dq_baseline_handler(
 
     my_default_monitor.suggest_baseline(
         job_name=f"dq-baseline-{execution_id}",
-        baseline_dataset=baseline_dataset,
+        baseline_dataset='/tmp/dq.csv',
         dataset_format=get_dataset_format(dataset_format),
         output_s3_uri=output_s3_uri,
         wait=True
     )
     print(f"ModelBiasMonitor baselining job: {my_default_monitor.latest_baselining_job_name}")
+    return my_default_monitor.latest_baselining_job_name
 
 
 def create_mq_baseline_handler(
     role,
-    baseline_dataset,
+    baseline_full_dataset, # target + pred
     output_s3_uri,
+    target_label,
+    predict_label,
     problem_type,
-    inference_attribute,
-    ground_truth_attribute,
-    execution_id,
     dataset_format,
     instance_count,
     instance_type,
     volume_size_in_gb,
     max_runtime_in_seconds,
-    probability_attribute=None, # Classification Only,
-    probability_threshold_attribute=None,  # Classification Only
+    probability_attribute, # Classification Only,
+    probability_threshold_attribute,  # Classification Only
+    execution_id,
 ):
-    logger.info('MQ')
+    baseline_df=load_csv_from_s3(baseline_full_dataset, header=0)
+    baseline_df = baseline_df[[target_label, predict_label]]
+    baseline_df.to_csv('/tmp/mq.csv', index=False, header=True)
+
     model_quality_monitor = ModelQualityMonitor(
         role=role,
         instance_count=instance_count,
@@ -97,25 +123,28 @@ def create_mq_baseline_handler(
     )    
     model_quality_monitor.suggest_baseline(
         job_name=f"mq-baseline-{execution_id}",
-        baseline_dataset=baseline_dataset, # The S3 location of the validation dataset.
+        baseline_dataset='/tmp/mq.csv', # The location of the validation dataset.
         dataset_format=get_dataset_format(dataset_format),
         output_s3_uri = output_s3_uri, # The S3 location to store the results.
         problem_type=problem_type,
-        inference_attribute= inference_attribute, # The column in the dataset that contains predictions.
+        inference_attribute= predict_label, # The column in the dataset that contains predictions.
+        ground_truth_attribute= target_label, # The column in the dataset that contains ground truth labels.
         probability_attribute= probability_attribute, # The column in the dataset that contains probabilities.
         probability_threshold_attribute=probability_threshold_attribute,
-        ground_truth_attribute= ground_truth_attribute, # The column in the dataset that contains ground truth labels.
+
         wait=True
     )
     print(f"ModelBiasMonitor baselining job: {model_quality_monitor.latest_baselining_job_name}")
+    return model_quality_monitor.latest_baselining_job_name
 
 
 def create_mb_baseline_handler(
     role,
     model_name,
-    baseline_dataset,
+    baseline_full_dataset, # pred + target + [features]
     output_s3_uri,
-    label,
+    target_label,
+    predict_label,
     bias_config,
     model_predicted_label_config,
     content_type,
@@ -124,18 +153,21 @@ def create_mb_baseline_handler(
     max_runtime_in_seconds,
     execution_id
 ):
-    logger.info('MB')
+    s3_data_input_path, headers = parse_csv_and_headers_s3(baseline_full_dataset, target_to_shift=target_label)
+
     model_bias_monitor = ModelBiasMonitor(
         role=role,
         sagemaker_session=Session(),
         max_runtime_in_seconds=max_runtime_in_seconds,
     )
-    
+
     model_bias_data_config = CfyDataConfig(
-        s3_data_input_path=baseline_dataset,
+        s3_data_input_path=s3_data_input_path,
         s3_output_path=output_s3_uri,
-        label=label,
-        headers=None,
+        headers=headers,
+        label=target_label,
+        predicted_label=predict_label,
+        features=",".join([c for c in headers if c != target_label and c != predict_label]),
         dataset_type=content_type,
     )
 
@@ -172,16 +204,16 @@ def create_mb_baseline_handler(
         wait=True
     )
     print(f"ModelBiasMonitor baselining job: {model_bias_monitor.latest_baselining_job_name}")
+    return model_bias_monitor.latest_baselining_job_name
 
 
 def create_me_baseline_handler(
     role,
     model_name,
-    baseline_dataset,
+    baseline_full_dataset,  # pred + [features]
     output_s3_uri,
-    label,
-    baseline_cols,
-    test_X_dataset,
+    target_label,
+    predict_label,
     num_samples,
     agg_method,
     content_type,
@@ -190,19 +222,20 @@ def create_me_baseline_handler(
     max_runtime_in_seconds,
     execution_id
 ):
-    logger.info('ME')
     model_explainability_monitor = ModelExplainabilityMonitor(
         role=role,
         sagemaker_session=Session(),
         max_runtime_in_seconds=max_runtime_in_seconds,
     )
-    features = baseline_cols.remove(label)
+
+    s3_data_input_path, headers = parse_csv_and_headers_s3(baseline_full_dataset, target_to_shift=target_label)
     model_explainability_data_config = CfyDataConfig(
-        s3_data_input_path=baseline_dataset,
-        s3_output_path=output_s3_uri,
-        label=label,
-        headers=None,
-        features=features,
+        s3_data_input_path=s3_data_input_path,
+        s3_output_path=output_s3_uri, 
+        headers=headers,
+        label=target_label,
+        predicted_label=predict_label,
+        features=",".join([c for c in headers if c != target_label and c != predict_label]), 
         dataset_type=content_type,
     )
 
@@ -215,8 +248,9 @@ def create_me_baseline_handler(
     )
 
     # Here use the mean value of test dataset as SHAP baseline
-    test_X_dataframe = load_csv_from_s3(test_X_dataset, header=None)
-    shap_baseline = [list(test_X_dataframe.mean())]
+    baseline_X_dataframe=load_csv_from_s3(baseline_full_dataset, header=0)
+    baseline_X_dataframe = baseline_X_dataframe.drop(columns=[target_label, predict_label])
+    shap_baseline = [list(baseline_X_dataframe.mean())]
 
     shap_config = CfySHAPConfig(
         baseline=shap_baseline,
@@ -233,47 +267,46 @@ def create_me_baseline_handler(
         wait=True
     )
     print(f"ModelExplainabilityMonitor baselining job: {model_explainability_monitor.latest_baselining_job_name}")
+    return model_explainability_monitor.latest_baselining_job_name
 
 
 if __name__ == '__main__':
     print('START')
-    logger.info('START')
 
     state={}
 
-    monitor_type = os.getenv('TASK_TOKEN')
-
     monitor_type = os.getenv('monitor_type')
+    print('monitor_type ' + monitor_type)
 
     role = os.getenv('role')
-    baseline_dataset = os.getenv('baseline_dataset')
-    output_s3_uri = os.getenv('output_s3_uri')
-    dataset_format = json.loads(os.getenv('dataset_format', {'csv': {'header': True}}))
-    instance_count = os.getenv('instance_count', 1)
+    baseline_full_dataset = os.getenv('baseline_full_dataset', '')
+    output_s3_uri = os.getenv('output_s3_uri', '')
+    dataset_format = json.loads(os.getenv('dataset_format', '{"csv": {"header": true}}'))
+    instance_count = int(os.getenv('instance_count', '1'))
     instance_type = os.getenv('instance_type', 'ml.m5.xlarge')
-    volume_size_in_gb = os.getenv('volume_size_in_gb', 20)
-    max_runtime_in_seconds = os.getenv('max_runtime_in_seconds', 3600)
+    volume_size_in_gb = int(os.getenv('volume_size_in_gb', '20'))
+    max_runtime_in_seconds = int(os.getenv('max_runtime_in_seconds', '3600'))
     execution_id = os.getenv('execution_id')
-    problem_type = os.getenv('problem_type')
-    inference_attribute = os.getenv('inference_attribute') # The column in the dataset that contains predictions.
-    probability_attribute = os.getenv('probability_attribute') # The column in the dataset that contains probabilities.
-    ground_truth_attribute = os.getenv('ground_truth_attribute') # The column in the dataset that contains ground truth labels.
-    model_name = os.getenv('model_name')
-    label = os.getenv('label')
-    bias_config = os.getenv('bias_config') # {'label_values_or_threshold':[1], 'function':"Account Length", 'facet_values_or_threshold':[100]}
-    model_predicted_label_config = os.getenv('model_predicted_label_config') # {'probability_threshold':0.8}
+    problem_type = os.getenv('problem_type', '')
+    predict_label = os.getenv('predict_label', '') # The column in the dataset that contains predictions.
+    target_label = os.getenv('target_label', '') # The column in the dataset that contains ground truth labels.
+    model_name = os.getenv('model_name', '')
+    bias_config = json.loads(os.getenv('bias_config','{}')) or None # {'label_values_or_threshold':[1], 'function':"Account Length", 'facet_values_or_threshold':[100]}
+    model_predicted_label_config = json.loads(os.getenv('model_predicted_label_config','{}')) or None # {'probability_threshold':0.8}
     content_type = os.getenv('content_type', 'text/csv')
-    baseline_cols = json.loads(os.getenv('baseline_cols'))
-    test_X_dataset = os.getenv('test_X_dataset')
-    num_samples = os.getenv('num_samples', 100)
+    num_samples = int(os.getenv('num_samples', '100'))
     agg_method = os.getenv('agg_method', 'mean_sq') # "mean_abs", "median", "mean_sq"
-
+    probability_attribute = json.loads(os.getenv('probability_attribute','{}')) or None # The column in the dataset that contains probabilities.
+    probability_threshold_attribute=json.loads(os.getenv('probability_threshold_attribute','{}')) or None
+    
     if monitor_type == 'DataQuality':
-        create_dq_baseline_handler(
+        baselining_job_name = create_dq_baseline_handler(
             role,
-            baseline_dataset,
+            baseline_full_dataset, # [features] must be compliant with Spark. For column names, use only lowercase characters, and _ as the only special character
             output_s3_uri,
-            dataset_format,
+            target_label,
+            predict_label,
+            dataset_format, # include headers
             instance_count,
             instance_type,
             volume_size_in_gb,
@@ -281,28 +314,30 @@ if __name__ == '__main__':
             execution_id
         )
     elif monitor_type == 'ModelQuality':
-        create_mq_baseline_handler(
+        baselining_job_name = create_mq_baseline_handler(
             role,
-            baseline_dataset,
+            baseline_full_dataset, # target + pred
             output_s3_uri,
+            target_label,
+            predict_label,
             problem_type,
-            inference_attribute,
-            probability_attribute,
-            ground_truth_attribute,
-            execution_id,
             dataset_format,
             instance_count,
             instance_type,
             volume_size_in_gb,
             max_runtime_in_seconds,
+            probability_attribute, # Classification Only,
+            probability_threshold_attribute,  # Classification Only
+            execution_id,
         )
     elif monitor_type == 'ModelBias':
-        create_mb_baseline_handler(
+        baselining_job_name = create_mb_baseline_handler(
             role,
             model_name,
-            baseline_dataset,
+            baseline_full_dataset, # pred + target + [features]
             output_s3_uri,
-            label,
+            target_label,
+            predict_label,
             bias_config,
             model_predicted_label_config,
             content_type,
@@ -312,14 +347,13 @@ if __name__ == '__main__':
             execution_id
         )
     elif monitor_type == 'ModelExplainability':
-        create_me_baseline_handler(
+        baselining_job_name = create_me_baseline_handler(
             role,
             model_name,
-            baseline_dataset,
+            baseline_full_dataset,  # pred + [features]
             output_s3_uri,
-            label,
-            baseline_cols,
-            test_X_dataset,
+            target_label,
+            predict_label,
             num_samples,
             agg_method,
             content_type,
@@ -329,6 +363,7 @@ if __name__ == '__main__':
             execution_id
         )
     else:
-        pass
+        baselining_job_name = 'None'
 
+    state['BASELINING_JOB_NAME'] = baselining_job_name
     report_success(stepfunctions, state)

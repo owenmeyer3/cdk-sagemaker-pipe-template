@@ -28,15 +28,18 @@
 		"SM_EXECUTION_ROLE_ARN":"arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
 		"RULE_EXECUTION_ROLE_ARN":"arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
 		"LAMBDA_EXECUTION_ROLE_ARN":"arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
-		"OTHER_EXECUTION_ROLE_ARN":"arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
+		"MONITOR_EXECUTION_ROLE_ARN":"arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
 		"PIPELINE_BUCKET":"omm-test-bucket",
 		"VPC_CONFIG":{
 			"ID":"vpc-2000c45d",
-			"SUBNETS":[
+			"PRIVATE_SUBNETS":[
 				{"ID":"subnet-001be661bcef4b615", "AZ":"us-east-1a", "ROUTE_TABLE":"rtb-a787c4d9"},
 				{"ID":"subnet-003ad32933ca43e74", "AZ":"us-east-1b", "ROUTE_TABLE":"rtb-a787c4d9"}
 			],
-			"SECURITY_GROUP":"sg-00f14515abe1e47e8"
+			"PUBLIC_SUBNETS":[
+				{"ID":"subnet-00d66021", "AZ":"us-east-1d", "ROUTE_TABLE":"rtb-a787c4d9"}
+			],
+			"SECURITY_GROUPS":["sg-00f14515abe1e47e8"]
 		},
 		"CLUSTER_NAME":"omm-test-cluster",
 		"FNS":{

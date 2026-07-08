@@ -9,11 +9,9 @@ from aws_cdk import (
     Duration,
     RemovalPolicy
 )
-from custom_constructs.CNetwork import CNetwork
-from custom_constructs.CLambda import CLambdaFunction
-from custom_constructs.CECS import CFargateTaskDefinition
-from custom_constructs.utils import get_local_project_root
 from constructs import Construct
+from custom_constructs.CNetwork import Network
+from custom_constructs.utils import get_local_project_root
 
 class ETaskDefinition(ecs.FargateTaskDefinition):
     def __init__(self, 

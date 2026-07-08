@@ -6,9 +6,7 @@ from aws_cdk import (
     aws_stepfunctions as stepfunctions,
     aws_logs as logs
 )
-from custom_constructs.CNetwork import CNetwork
-from custom_constructs.CLambda import CLambdaFunction
-from custom_constructs.CECS import CFargateTaskDefinition
+from custom_constructs.CNetwork import Network
 from custom_constructs.utils import get_local_project_root
 
 def get_transform_task(
@@ -16,7 +14,6 @@ def get_transform_task(
     construct_id, 
     job_name,
     model_name_lkp, 
-    execution_id_lkp,
     instance_type_lkp,
     s3_data_source=None, 
     s3_data_source_lkp=None, 
@@ -33,7 +30,7 @@ def get_transform_task(
         service='sagemaker',
         action='createTransformJob',
         parameters={
-            'TransformJobName': stepfunctions.JsonPath.format(f'{job_name}-{{}}', stepfunctions.JsonPath.string_at(execution_id_lkp)),
+            'TransformJobName': stepfunctions.JsonPath.format(f'{job_name}-{{}}', stepfunctions.JsonPath.string_at('$$.Execution.Name')),
             'ModelName': stepfunctions.JsonPath.string_at(model_name_lkp),
             'ModelClientConfig': {
                 'InvocationsMaxRetries': max_retries,
@@ -69,7 +66,7 @@ def get_transform_task(
         f"{create_transform_job_step.id}PollStatus",
         service='sagemaker',
         action='describeTransformJob',
-        parameters={ 'TransformJobName': stepfunctions.JsonPath.format(f'{job_name}-{{}}', stepfunctions.JsonPath.string_at(execution_id_lkp)) },
+        parameters={ 'TransformJobName': stepfunctions.JsonPath.format(f'{job_name}-{{}}', stepfunctions.JsonPath.string_at('$$.Execution.Name')) },
         iam_resources=['*'],
         result_path=f"$.{create_transform_job_step.id}PollStatusTask",
     )

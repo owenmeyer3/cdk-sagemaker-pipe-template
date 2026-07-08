@@ -310,7 +310,7 @@ def create_model_quality_job_definition(
     role_arn,
     deploy_type,
     monitor_dir,
-    prediction_name,
+    predict_label,
     ground_truth_dir,
     problem_type,
     image_uri="156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
@@ -327,7 +327,7 @@ def create_model_quality_job_definition(
         deploy_type, 
         endpoint_name=endpoint_name,
         rt_local_path='/opt/ml/processing/input/endpoint',
-        inference_attribute=prediction_name,
+        inference_attribute=predict_label,
         bch_local_path='/opt/ml/processing/input',
         dataset_format=dataset_format,
         data_capture_dir=data_capture_dir,
@@ -554,7 +554,7 @@ def create_model_quality_monitoring_schedule(
     role_arn,
     deploy_type,
     problem_type, # 'BinaryClassification'|'MulticlassClassification'|'Regression'
-    prediction_name,
+    predict_label,
     monitor_dir,
     ground_truth_dir,
     image_uri="156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer",
@@ -578,7 +578,7 @@ def create_model_quality_monitoring_schedule(
         role_arn,
         deploy_type, 
         monitor_dir, 
-        prediction_name,
+        predict_label,
         ground_truth_dir,
         problem_type,
         image_uri=image_uri,
@@ -621,7 +621,7 @@ def data_quality_handler(event, context):
     instance_type = event['instance_type'] if 'instance_type' in event else 'ml.m5.large'
     volume_size_in_gb = event['volume_size_in_gb'] if 'volume_size_in_gb' in event else 20
     max_runtime_in_seconds = event['max_runtime_in_seconds'] if 'max_runtime_in_seconds' in event else 1800
-    dataset_format = json.loads(event['dataset_format'] if 'dataset_format' in event else {'Csv': {'Header': True}}), # {'Csv':{'Header': True|False},'Json': {'Line': True|False}, Parquet': {}} 
+    dataset_format = json.loads(event['dataset_format'] if 'dataset_format' in event else '{"Csv": {"Header": true}}'), # {'Csv':{'Header': True|False},'Json': {'Line': True|False}, Parquet': {}} 
     schedule_expression = event['schedule_expression'] if 'schedule_expression' in event else 'cron(0 * ? * * *)'
     data_analysis_start_time = event['data_analysis_start_time'] if 'data_analysis_start_time' in event else "-PT2H"
     data_analysis_end_time = event['data_analysis_end_time'] if 'data_analysis_end_time' in event else "-PT1H"
@@ -666,7 +666,7 @@ def model_bias_handler(event, context):
     instance_type = event['instance_type'] if 'instance_type' in event else 'ml.m5.large'
     volume_size_in_gb = event['volume_size_in_gb'] if 'volume_size_in_gb' in event else 20
     max_runtime_in_seconds = event['max_runtime_in_seconds'] if 'max_runtime_in_seconds' in event else 1800
-    dataset_format = json.loads(event['dataset_format'] if 'dataset_format' in event else {'Csv': {'Header': True}}), # {'Csv':{'Header': True|False},'Json': {'Line': True|False}, Parquet': {}} 
+    dataset_format = json.loads(event['dataset_format'] if 'dataset_format' in event else '{"Csv": {"Header": true}}'), # {'Csv':{'Header': True|False},'Json': {'Line': True|False}, Parquet': {}} 
     schedule_expression = event['schedule_expression'] if 'schedule_expression' in event else 'cron(0 * ? * * *)'
     data_analysis_start_time = event['data_analysis_start_time'] if 'data_analysis_start_time' in event else "-PT2H"
     data_analysis_end_time = event['data_analysis_end_time'] if 'data_analysis_end_time' in event else "-PT1H"
@@ -711,7 +711,7 @@ def model_explainability_handler(event, context):
     instance_type = event['instance_type'] if 'instance_type' in event else 'ml.m5.large'
     volume_size_in_gb = event['volume_size_in_gb'] if 'volume_size_in_gb' in event else 20
     max_runtime_in_seconds = event['max_runtime_in_seconds'] if 'max_runtime_in_seconds' in event else 1800
-    dataset_format = json.loads(event['dataset_format'] if 'dataset_format' in event else {'Csv': {'Header': True}}), # {'Csv':{'Header': True|False},'Json': {'Line': True|False}, Parquet': {}} 
+    dataset_format = json.loads(event['dataset_format'] if 'dataset_format' in event else '{"Csv": {"Header": true}}'), # {'Csv':{'Header': True|False},'Json': {'Line': True|False}, Parquet': {}} 
     schedule_expression = event['schedule_expression'] if 'schedule_expression' in event else 'cron(0 * ? * * *)'
     data_analysis_start_time = event['data_analysis_start_time'] if 'data_analysis_start_time' in event else "-PT2H"
     data_analysis_end_time = event['data_analysis_end_time'] if 'data_analysis_end_time' in event else "-PT1H"
@@ -750,7 +750,7 @@ def model_quality_handler(event, context):
     role_arn = event['monitor_role']
     deploy_type = event['deploy_type']
     problem_type = event['problem_type'] # 'BinaryClassification'|'MulticlassClassification'|'Regression'
-    prediction_name = event['prediction_name']
+    predict_label = event['predict_label']
     monitor_dir = event['monitor_dir']
     ground_truth_dir = event['ground_truth_dir']
     image_uri = event['image_uri'] if 'image_uri' in event else "156813124566.dkr.ecr.us-east-1.amazonaws.com/sagemaker-model-monitor-analyzer"
@@ -758,7 +758,7 @@ def model_quality_handler(event, context):
     instance_type = event['instance_type'] if 'instance_type' in event else 'ml.m5.large'
     volume_size_in_gb = event['volume_size_in_gb'] if 'volume_size_in_gb' in event else 20
     max_runtime_in_seconds = event['max_runtime_in_seconds'] if 'max_runtime_in_seconds' in event else 1800
-    dataset_format = json.loads(event['dataset_format'] if 'dataset_format' in event else {'Csv': {'Header': True}}), # {'Csv':{'Header': True|False},'Json': {'Line': True|False}, Parquet': {}} 
+    dataset_format = json.loads(event['dataset_format'] if 'dataset_format' in event else '{"Csv": {"Header": true}}'), # {'Csv':{'Header': True|False},'Json': {'Line': True|False}, Parquet': {}} 
     schedule_expression = event['schedule_expression'] if 'schedule_expression' in event else 'cron(0 * ? * * *)'
     data_analysis_start_time = event['data_analysis_start_time'] if 'data_analysis_start_time' in event else "-PT2H"
     data_analysis_end_time = event['data_analysis_end_time'] if 'data_analysis_end_time' in event else "-PT1H"
@@ -773,7 +773,7 @@ def model_quality_handler(event, context):
         role_arn,
         deploy_type,
         problem_type,
-        prediction_name,
+        predict_label,
         monitor_dir,
         ground_truth_dir,
         image_uri=image_uri,
