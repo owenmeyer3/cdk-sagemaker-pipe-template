@@ -1,0 +1,50 @@
+{
+  "groundTruthData": {
+    "data": "14",
+    "encoding": "CSV"
+  },
+  "eventMetadata": {
+    "eventId": "60"
+  },
+  "eventVersion": "0"
+}
+{
+  "groundTruthData": {
+    "data": "7",
+    "encoding": "CSV"
+  },
+  "eventMetadata": {
+    "eventId": "61"
+  },
+  "eventVersion": "0"
+}
+{
+  "groundTruthData": {
+    "data": "9",
+    "encoding": "CSV"
+  },
+  "eventMetadata": {
+    "eventId": "62"
+  },
+  "eventVersion": "0"
+}
+{
+  "groundTruthData": {
+    "data": "8",
+    "encoding": "CSV"
+  },
+  "eventMetadata": {
+    "eventId": "63"
+  },
+  "eventVersion": "0"
+}
+{
+  "groundTruthData": {
+    "data": "9",
+    "encoding": "CSV"
+  },
+  "eventMetadata": {
+    "eventId": "64"
+  },
+  "eventVersion": "0"
+}
