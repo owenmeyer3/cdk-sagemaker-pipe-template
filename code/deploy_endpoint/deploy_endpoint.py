@@ -57,7 +57,10 @@ def handler(event, context):
             'CaptureOptions': [
                 {'CaptureMode': 'Input'},
                 {'CaptureMode': 'Output'}
-            ]
+            ],
+            "CaptureContentTypeHeader": {
+                "CsvContentTypes": ["text/csv"]
+            }
         }
     )
     while not endpoint_config_exists(sm_client, endpoint_config_name):

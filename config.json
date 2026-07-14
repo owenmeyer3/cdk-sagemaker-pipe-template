@@ -1,7 +1,7 @@
 {
 	"project": {
 		"NAME":"abalone",
-		"DEPLOY_TYPE":"batch",
+		"DEPLOY_TYPE":"realtime",
 		"TARGET_NAME":"rings",
 		"TARGET_TYPE":"float",
 		"PROBLEM_TYPE":"Regression",
@@ -29,6 +29,7 @@
 		"RULE_EXECUTION_ROLE_ARN":"arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
 		"LAMBDA_EXECUTION_ROLE_ARN":"arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
 		"MONITOR_EXECUTION_ROLE_ARN":"arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
+		"TRANSFORM_ROLE_ARN":"arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
 		"PIPELINE_BUCKET":"omm-test-bucket",
 		"VPC_CONFIG":{
 			"ID":"vpc-2000c45d",
@@ -41,13 +42,7 @@
 			],
 			"SECURITY_GROUPS":["sg-00f14515abe1e47e8"]
 		},
-		"CLUSTER_NAME":"omm-test-cluster",
-		"FNS":{
-			"CLASSIFY_DOC":{},
-			"PROCESS_DOC_1":{},
-			"PROCESS_DOC_2":{},
-			"PROCESS_DOC_3":{}
-		}
+		"CLUSTER_NAME":"omm-test-cluster"
 	},
 	"prd": {
 		"ENV":"",
@@ -62,12 +57,6 @@
 			"SECURITY_GROUP":""
 		},
 		"EXECUTION_ROLE_ARN":"",
-		"CLUSTER_NAME":"",
-		"FNS":{
-			"CLASSIFY_DOC":{},
-			"PROCESS_DOC_1":{},
-			"PROCESS_DOC_2":{},
-			"PROCESS_DOC_3":{}
-		}
+		"CLUSTER_NAME":""
 	}
 }

@@ -1,0 +1,116 @@
+{
+    "body":"0.255,0.19,0.07,0.0815,0.028,0.016,0.031,0.0,1.0,0.0",
+    "inference_id":"0",
+    "fn_call":"sm_runtime.invoke_endpoint(EndpointName='abalone-1-endpoint', ContentType='text/csv', Body=body, InferenceId=inference_id)",
+    "location":"s3://omm-test-bucket/pipelines/abalone/capture/abalone-1-endpoint/AllTraffic/2026/07/13/17/23-08-971-95aaf225-4e95-440a-bc70-90a74e5ccae8.jsonl"
+}
+{
+  "captureData": {
+    "endpointInput": {
+      "observedContentType": "text/csv",
+      "mode": "INPUT",
+      "data": "MC4yNTUsMC4xOSwwLjA3LDAuMDgxNSwwLjAyOCwwLjAxNiwwLjAzMSwwLjAsMS4wLDAuMA==",
+      "encoding": "BASE64"
+    },
+    "endpointOutput": {
+      "observedContentType": "text/csv; charset=utf-8",
+      "mode": "OUTPUT",
+      "data": "NS41NjQyMjA0Mjg0NjY3OTcK",
+      "encoding": "BASE64"
+    }
+  },
+  "eventMetadata": {
+    "eventId": "dee52c30-2ab7-48d9-b506-35e199ac4ba1",
+    "inferenceId": "0",
+    "inferenceTime": "2026-07-13T17:23:08Z"
+  },
+  "eventVersion": "0"
+}
+{
+  "captureData": {
+    "endpointInput": {
+      "observedContentType": "text/csv",
+      "mode": "INPUT",
+      "data": "MC42MywwLjQ4LDAuMTQ1LDEuMDExNSwwLjQyMzUsMC4yMzcsMC4zMDUsMC4wLDAuMCwxLjA=",
+      "encoding": "BASE64"
+    },
+    "endpointOutput": {
+      "observedContentType": "text/csv; charset=utf-8",
+      "mode": "OUTPUT",
+      "data": "MTEuMDgwNjg2NTY5MjEzODY3Cg==",
+      "encoding": "BASE64"
+    }
+  },
+  "eventMetadata": {
+    "eventId": "2f0cb797-4a72-4410-9cea-01a6b343ff6f",
+    "inferenceId": "1",
+    "inferenceTime": "2026-07-13T17:23:08Z"
+  },
+  "eventVersion": "0"
+}
+{
+  "captureData": {
+    "endpointInput": {
+      "observedContentType": "text/csv",
+      "mode": "INPUT",
+      "data": "MC41LDAuMzg1LDAuMTQ1LDAuNzYxNSwwLjI0NiwwLjE5NSwwLjIwNCwwLjAsMC4wLDEuMA==",
+      "encoding": "BASE64"
+    },
+    "endpointOutput": {
+      "observedContentType": "text/csv; charset=utf-8",
+      "mode": "OUTPUT",
+      "data": "MTEuMzkyNzQzMTEwNjU2NzM4Cg==",
+      "encoding": "BASE64"
+    }
+  },
+  "eventMetadata": {
+    "eventId": "7c1b2dce-72fa-4bc1-a675-9cd2fb9e6260",
+    "inferenceId": "2",
+    "inferenceTime": "2026-07-13T17:23:09Z"
+  },
+  "eventVersion": "0"
+}
+{
+  "captureData": {
+    "endpointInput": {
+      "observedContentType": "text/csv",
+      "mode": "INPUT",
+      "data": "MC40MSwwLjMyNSwwLjEwNSwwLjM2MSwwLjE2MDUsMC4wNjY1LDAuMTAzLDAuMCwxLjAsMC4w",
+      "encoding": "BASE64"
+    },
+    "endpointOutput": {
+      "observedContentType": "text/csv; charset=utf-8",
+      "mode": "OUTPUT",
+      "data": "Ny4xNTg4MTg3MjE3NzEyNAo=",
+      "encoding": "BASE64"
+    }
+  },
+  "eventMetadata": {
+    "eventId": "aa13f8c3-fe97-48e1-8b4e-b148ece33f07",
+    "inferenceId": "3",
+    "inferenceTime": "2026-07-13T17:23:09Z"
+  },
+  "eventVersion": "0"
+}
+{
+  "captureData": {
+    "endpointInput": {
+      "observedContentType": "text/csv",
+      "mode": "INPUT",
+      "data": "MC42OTUsMC41MzUsMC4yLDEuNTg1NSwwLjY2NywwLjMzNCwwLjQ3MSwxLjAsMC4wLDAuMA==",
+      "encoding": "BASE64"
+    },
+    "endpointOutput": {
+      "observedContentType": "text/csv; charset=utf-8",
+      "mode": "OUTPUT",
+      "data": "MTMuOTg2MDUyNTEzMTIyNTU5Cg==",
+      "encoding": "BASE64"
+    }
+  },
+  "eventMetadata": {
+    "eventId": "432f5cd1-38e3-44a2-9eaa-72adebf0f929",
+    "inferenceId": "4",
+    "inferenceTime": "2026-07-13T17:23:09Z"
+  },
+  "eventVersion": "0"
+}

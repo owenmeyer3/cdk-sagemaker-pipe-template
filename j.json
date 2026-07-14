@@ -1,31 +1,90 @@
 {
-    "End": True,
-    "Type": "Task",
-    "Resource": "arn:aws:states:::sagemaker:createTransformJob",
-    "Parameters": {
-        "TransformJobName.$": "States.Format("abalone-bl-transform-job-{}", $$.Execution.Name)",
-        "ModelName.$": "$.GetOrCreateModelTask.MODEL_NAME",
-        "ModelClientConfig": {
-            "InvocationsMaxRetries": 3,
-            "InvocationsTimeoutInSeconds": 300
-        },
-        "TransformInput": {
-            "DataSource": {
-                "S3DataSource": {
-                    "S3Uri.$": "$.PrepBaselineSetsTask.BASELINE_X_FILE",
-                    "S3DataType": "S3Prefix"
-                }
-            },
-            "ContentType": "text/csv",
-            "SplitType": "Line"
-        },
-        "TransformOutput": {
-            "S3OutputPath": "s3://omm-test-bucket/pipelines/abalone/baseline"
-        },
-        "TransformResources": {
-            "InstanceCount": 1,
-            "InstanceType.$": "$.TRANSFORM_INSTANCE_TYPE"
-        }
+  "SdkResponseMetadata": null,
+  "SdkHttpMetadata": null,
+  "ProcessingInputs": [
+    {
+      "InputName": "analysis_config",
+      "AppManaged": false,
+      "S3Input": {
+        "S3Uri": "s3://omm-test-bucket/pipelines/abalone/model-explainability/info/analysis_config.json",
+        "LocalPath": "/opt/ml/processing/input/config",
+        "S3DataType": "S3_PREFIX",
+        "S3InputMode": "FILE",
+        "S3DataDistributionType": "FULLYREPLICATED",
+        "S3CompressionType": null
+      },
+      "DatasetDefinition": null
     },
-    "ResultPath": "$.BaselineTransformTask"
+    {
+      "InputName": "dataset",
+      "AppManaged": false,
+      "S3Input": {
+        "S3Uri": "s3://omm-test-bucket/pipelines/abalone/model-explainability/baseline.csv",
+        "LocalPath": "/opt/ml/processing/input/data",
+        "S3DataType": "S3_PREFIX",
+        "S3InputMode": "FILE",
+        "S3DataDistributionType": "FULLYREPLICATED",
+        "S3CompressionType": null
+      },
+      "DatasetDefinition": null
+    }
+  ],
+  "ProcessingOutputConfig": {
+    "Outputs": [
+      {
+        "OutputName": "analysis_result",
+        "S3Output": {
+          "S3Uri": "s3://omm-test-bucket/pipelines/abalone/model-explainability/info/8bd8bfa1-6728-4e94-a445-df76bd7fe7be",
+          "LocalPath": "/opt/ml/processing/output",
+          "S3UploadMode": "END_OF_JOB"
+        },
+        "FeatureStoreOutput": null,
+        "AppManaged": false
+      }
+    ],
+    "KmsKeyId": null
+  },
+  "ProcessingJobName": "abalone-me-baseline-8bd8bfa1-6728-4e94-a445-df76bd7fe7be-0",
+  "ProcessingResources": {
+    "ClusterConfig": {
+      "InstanceCount": 1,
+      "InstanceType": "ml.m5.large",
+      "VolumeSizeInGB": 20,
+      "VolumeKmsKeyId": null
+    }
+  },
+  "StoppingCondition": {
+    "MaxRuntimeInSeconds": 1800
+  },
+  "AppSpecification": {
+    "ImageUri": "205585389593.dkr.ecr.us-east-1.amazonaws.com/sagemaker-clarify-processing:1.0",
+    "ContainerEntrypoint": null,
+    "ContainerArguments": null
+  },
+  "Environment": null,
+  "NetworkConfig": null,
+  "RoleArn": "arn:aws:iam::088461143167:role/SageMakerExecutionRole-1",
+  "ExperimentConfig": {
+    "ExperimentName": null,
+    "TrialName": null,
+    "TrialComponentDisplayName": null,
+    "RunName": null
+  },
+  "ProcessingJobArn": "arn:aws:sagemaker:us-east-1:088461143167:processing-job/abalone-me-baseline-8bd8bfa1-6728-4e94-a445-df76bd7fe7be-0",
+  "ProcessingJobStatus": "Completed",
+  "ExitMessage": "Completed: SageMaker XAI Analyzer ran successfully",
+  "FailureReason": null,
+  "ProcessingEndTime": 1783955081825,
+  "ProcessingStartTime": 1783954520121,
+  "LastModifiedTime": 1783955231718,
+  "CreationTime": 1783954478734,
+  "LastModifiedBy": null,
+  "CreatedBy": null,
+  "MonitoringScheduleArn": null,
+  "AutoMLJobArn": null,
+  "TrainingJobArn": null,
+  "Tags": {
+    "AWS_STEP_FUNCTIONS_EXECUTION_ARN": "arn:aws:states:us-east-1:088461143167:execution:SM934E715A-yV1pbO569ncr:8bd8bfa1-6728-4e94-a445-df76bd7fe7be",
+    "MANAGED_BY_AWS": "STARTED_BY_STEP_FUNCTIONS"
+  }
 }

@@ -1,4 +1,5 @@
-import boto3, logging, json
+import boto3, logging, json, time
+from botocore.exceptions import ClientError
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -42,23 +43,39 @@ def get_job_input(deploy_type, **kwargs):
 ##############################################
 ############### DELETE MONITORS JOBS ##############
 ##############################################
+def wait_for_job_deletion(sm_client, job_definition_name, timeout_seconds=60, poll_interval=2):
+    start = time.time()
+    while time.time() - start < timeout_seconds:
+        try:
+            sm_client.describe_data_quality_job_definition(JobDefinitionName=job_definition_name)
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ResourceNotFound":
+                return True
+            raise  # anything else (throttling, permissions) shouldn't be silently swallowed
+        time.sleep(poll_interval)
+    raise TimeoutError(f"{job_definition_name} still exists after {timeout_seconds}s")
+
 def delete_monitor_job(sm_client, endpoint_name, monitoring_type): # 'DataQuality':|'ModelQuality'|'ModelBias'|'ModelExplainability'
     if monitoring_type == 'DataQuality':
         for job in sm_client.list_data_quality_job_definitions(EndpointName=endpoint_name)['JobDefinitionSummaries']:
             logger.info(f"DELETING:{job['MonitoringJobDefinitionName']}")
             response = sm_client.delete_data_quality_job_definition(JobDefinitionName=job['MonitoringJobDefinitionName'])
+            wait_for_job_deletion(sm_client, job['MonitoringJobDefinitionName'])
     elif monitoring_type == 'ModelQuality':
         for job in sm_client.list_model_quality_job_definitions(EndpointName=endpoint_name)['JobDefinitionSummaries']:
             logger.info(f"DELETING:{job['MonitoringJobDefinitionName']}")
             response = sm_client.delete_model_quality_job_definition(JobDefinitionName=job['MonitoringJobDefinitionName'])
+            wait_for_job_deletion(sm_client, job['MonitoringJobDefinitionName'])
     elif monitoring_type == 'ModelBias':
         for job in sm_client.list_model_bias_job_definitions(EndpointName=endpoint_name)['JobDefinitionSummaries']:
             logger.info(f"DELETING:{job['MonitoringJobDefinitionName']}")
             response = sm_client.delete_model_bias_job_definition(JobDefinitionName=job['MonitoringJobDefinitionName'])
+            wait_for_job_deletion(sm_client, job['MonitoringJobDefinitionName'])
     elif monitoring_type == 'ModelExplainability':
         for job in sm_client.list_model_explainability_job_definitions(EndpointName=endpoint_name)['JobDefinitionSummaries']:
             logger.info(f"DELETING:{job['MonitoringJobDefinitionName']}")
             response = sm_client.delete_model_explainability_job_definition(JobDefinitionName=job['MonitoringJobDefinitionName'])
+            wait_for_job_deletion(sm_client, job['MonitoringJobDefinitionName'])
     else:
         logger.info(f" INVALID monitoring_type. Choose 'DataQuality':|'ModelQuality'|'ModelBias'|'ModelExplainability' ")
 
@@ -193,7 +210,7 @@ def create_model_bias_job_definition(
         },
         ModelBiasAppSpecification={
             'ImageUri': image_uri,
-            'ConfigUri': f'{monitor_dir}/config/analysis_config.json',
+            'ConfigUri': f'{monitor_dir}/info/analysis_config.json',
             # 'Environment': {'string': 'string'}
         },
         ModelBiasJobInput=job_input,
@@ -261,11 +278,11 @@ def create_model_explainability_job_definition(
         JobDefinitionName=name,
         ModelExplainabilityBaselineConfig={
             #'BaseliningJobName': 'string',
-            "ConstraintsResource": {"S3Uri": f'{monitor_dir}/info/constraints.json'}
+            "ConstraintsResource": {"S3Uri": f'{monitor_dir}/info/analysis.json'}
         },
         ModelExplainabilityAppSpecification={
             'ImageUri': image_uri,
-            'ConfigUri': f'{monitor_dir}/config/analysis_config.json',
+            'ConfigUri': f'{monitor_dir}/info/analysis_config.json',
             # 'Environment': {'string': 'string'}
         },
         ModelExplainabilityJobInput=job_input,
